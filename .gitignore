@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Private source evidence and generated data
+data/inputs/
+data/database/*
+!data/database/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
+
+# Environment files may contain secrets
+.env
+.env.*
+!.env.example
+
+# SQLite databases and sidecars
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Build, test, and temporary output
+dist/
+build/
+coverage/
+*.log
+*.tmp
+*.temp
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
