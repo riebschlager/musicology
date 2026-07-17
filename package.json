@@ -11,6 +11,8 @@
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
+    "db:migrate": "node src/cli/db.ts migrate",
+    "db:status": "node src/cli/db.ts status",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint .",
