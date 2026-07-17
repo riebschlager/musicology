@@ -16,4 +16,6 @@ and recorded history without applying pending files. Both commands accept `--jso
 the automation contract. The commands use `MUSICOLOGY_DATABASE_PATH` when set and otherwise use the
 configured repository-relative database path.
 
-P0-05 intentionally adds no schema migration. The first domain schema belongs to P0-06.
+The first domain migration, `0001_create_initial_schema.sql`, belongs to P0-06. Its table contract,
+timestamp representation, provenance structure, and privacy boundary are documented in
+[`database-schema.md`](database-schema.md).
