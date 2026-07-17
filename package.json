@@ -1,0 +1,26 @@
+{
+  "name": "musicology",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A local-first personal music-history laboratory",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=9 <10"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "test": "node --test",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.4",
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2"
+  }
+}
