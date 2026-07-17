@@ -22,7 +22,7 @@ install in CI or routine verification.
 ## Create and inspect a database
 
 The default generated database is `data/database/musicology.sqlite3`. Apply every pending migration
-and then validate the migration files and recorded checksums:
+and then validate the migration files, recorded checksums, SQLite integrity, and foreign keys:
 
 ```sh
 pnpm db:migrate
@@ -45,8 +45,9 @@ MUSICOLOGY_DATABASE_PATH=/tmp/musicology-foundation-check.sqlite3 pnpm db:status
 ```
 
 `db:migrate` is idempotent: running it again with unchanged migration files reports that the database
-is up to date. `db:status` validates migration naming, ordering, continuity, and checksums without
-applying pending migrations.
+is up to date. Both commands fail with a data-error exit code if SQLite integrity or foreign-key
+validation fails. `db:status` also validates migration naming, ordering, continuity, and checksums
+without applying pending migrations.
 
 ## Test and validate changes
 

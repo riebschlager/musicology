@@ -165,16 +165,41 @@ describe("migration runner", () => {
         assert.equal(before.status, "success");
         assert.match(before.summary, /0 applied, 1 pending/);
         assert.deepEqual((before.data as JsonObject).pendingCount, 1);
-        assert.match(renderCommandResult(before), /Migration status is valid/);
+        assert.deepEqual((before.data as JsonObject).integrityOk, true);
+        assert.deepEqual((before.data as JsonObject).foreignKeyViolationCount, 0);
+        assert.match(renderCommandResult(before), /Database status is valid/);
         assert.deepEqual(JSON.parse(renderCommandResult(before, { format: "json" })), before);
 
         const migrated = runDatabaseCommand("migrate", databasePath, directory);
         assert.match(migrated.summary, /Applied 1 migration/);
         assert.deepEqual((migrated.data as JsonObject).appliedNowCount, 1);
+        assert.deepEqual((migrated.data as JsonObject).integrityOk, true);
 
         const after = runDatabaseCommand("status", databasePath, directory);
         assert.match(after.summary, /1 applied, 0 pending/);
         assert.deepEqual((after.data as JsonObject).appliedCount, 1);
+      });
+    });
+  });
+
+  it("returns a data error when database status finds a foreign-key violation", () => {
+    withMigrationDirectory((directory) => {
+      writeMigration(
+        directory,
+        "0001_create_relationship.sql",
+        `CREATE TABLE parent (id INTEGER PRIMARY KEY);
+         CREATE TABLE child (parent_id INTEGER NOT NULL REFERENCES parent (id));`,
+      );
+
+      withTemporarySqliteDatabase(({ connection, databasePath }) => {
+        applyMigrations(connection, directory);
+        connection.execute("PRAGMA foreign_keys = OFF");
+        connection.prepare("INSERT INTO child (parent_id) VALUES (999)").run();
+
+        const status = runDatabaseCommand("status", databasePath, directory);
+        assert.equal(status.status, "error");
+        assert.equal(status.exitCode, 4);
+        assert.equal(status.errors?.[0]?.code, "integrity_check_failed");
       });
     });
   });

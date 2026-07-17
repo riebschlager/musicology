@@ -12,9 +12,11 @@ migrations and their metadata rows are then applied in one `IMMEDIATE` transacti
 rolls back the entire pending batch. Repeated application with unchanged files is a no-op.
 
 Run `pnpm db:migrate` to apply pending migrations. Run `pnpm db:status` to validate migration files
-and recorded history without applying pending files. Both commands accept `--json`; JSON output is
-the automation contract. The commands use `MUSICOLOGY_DATABASE_PATH` when set and otherwise use the
-configured repository-relative database path.
+and recorded history without applying pending files. Both commands also run SQLite integrity and
+foreign-key checks against the opened database and return a data-error exit code if either fails.
+They accept `--json`; JSON output is the automation contract. The commands use
+`MUSICOLOGY_DATABASE_PATH` when set and otherwise use the configured repository-relative database
+path.
 
 The first domain migration, `0001_create_initial_schema.sql`, belongs to P0-06. Its table contract,
 timestamp representation, provenance structure, and privacy boundary are documented in

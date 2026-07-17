@@ -17,6 +17,7 @@ import {
   repositoryRoot,
 } from "../config/config.ts";
 import { openSqliteConnection } from "../db/better-sqlite3.ts";
+import type { IntegrityCheckResult } from "../db/connection.ts";
 import {
   applyMigrations,
   getMigrationStatus,
@@ -46,6 +47,23 @@ function statusData(status: MigrationStatus): JsonObject {
   };
 }
 
+function integrityData(integrity: IntegrityCheckResult): JsonObject {
+  return {
+    integrityOk: integrity.ok,
+    integrityMessages: integrity.messages,
+    foreignKeyViolationCount: integrity.foreignKeyViolations.length,
+  };
+}
+
+function integrityFailure(commandName: string, integrity: IntegrityCheckResult): CommandResult {
+  return commandFailure(commandName, ExitCode.DataError, "Database integrity validation failed.", [
+    {
+      code: "integrity_check_failed",
+      message: `SQLite reported ${integrity.messages.length} integrity message(s) and ${integrity.foreignKeyViolations.length} foreign-key violation(s).`,
+    },
+  ]);
+}
+
 export function runDatabaseCommand(
   command: DatabaseCommand,
   databasePath: string,
@@ -56,6 +74,10 @@ export function runDatabaseCommand(
   try {
     if (command === "migrate") {
       const result = applyMigrations(connection, migrationPath);
+      const integrity = connection.checkIntegrity();
+      if (!integrity.ok) {
+        return integrityFailure(commandName, integrity);
+      }
       return commandSuccess(
         commandName,
         result.appliedNow.length === 0
@@ -63,16 +85,21 @@ export function runDatabaseCommand(
           : `Applied ${result.appliedNow.length} migration(s); database is up to date.`,
         {
           ...statusData(result),
+          ...integrityData(integrity),
           appliedNowCount: result.appliedNow.length,
         },
       );
     }
 
     const status = getMigrationStatus(connection, migrationPath);
+    const integrity = connection.checkIntegrity();
+    if (!integrity.ok) {
+      return integrityFailure(commandName, integrity);
+    }
     return commandSuccess(
       commandName,
-      `Migration status is valid: ${status.applied.length} applied, ${status.pending.length} pending.`,
-      statusData(status),
+      `Database status is valid: ${status.applied.length} applied, ${status.pending.length} pending; integrity and foreign keys passed.`,
+      { ...statusData(status), ...integrityData(integrity) },
     );
   } finally {
     connection.close();

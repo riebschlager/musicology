@@ -12,6 +12,8 @@ describe("foundation developer workflow", () => {
   it("uses the pinned runtime, locked install, and shared project entry points in CI", () => {
     const workflow = readProjectFile(".github/workflows/ci.yml");
 
+    assert.match(workflow, /uses: actions\/checkout@v6/);
+    assert.match(workflow, /uses: actions\/setup-node@v6/);
     assert.match(workflow, /node-version-file: \.node-version/);
     assert.match(workflow, /corepack install/);
     assert.match(workflow, /pnpm install --frozen-lockfile/);
