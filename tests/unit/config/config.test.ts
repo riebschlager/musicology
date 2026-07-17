@@ -7,7 +7,7 @@ import {
   DEFAULT_PRESENTATION_TIMEZONE,
   configurationRedactionValues,
   loadConfiguration,
-} from "../../src/config/config.ts";
+} from "../../../src/config/config.ts";
 
 const testRoot = path.resolve("/tmp/musicology-configuration-test");
 

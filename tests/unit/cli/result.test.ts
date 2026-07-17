@@ -7,7 +7,7 @@ import {
   commandSuccess,
   redactSensitiveText,
   renderCommandResult,
-} from "../../src/cli/result.ts";
+} from "../../../src/cli/result.ts";
 
 describe("CLI command result contract", () => {
   it("renders a machine-readable JSON summary", () => {
