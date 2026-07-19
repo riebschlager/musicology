@@ -81,6 +81,23 @@ reported as duplicates. A failed multi-file command rolls back all source writes
 Summaries contain only aggregate counts and contract versions; exports and generated databases
 remain private and ignored.
 
+## Validate historical evidence
+
+After importing either source, validate the source bytes and evidence layer without modifying the
+inputs or database:
+
+```sh
+pnpm validate
+pnpm validate --json
+```
+
+Validation fails with a data-error exit code for changed or missing registered files, inconsistent
+ingest totals, incompatible file/record/run ownership, inconsistent ordinals, incorrect fingerprints
+or Last.fm occurrence links, unsafe rejection metadata, unsafe ingest-run error summaries,
+foreign-key violations, or SQLite integrity failures. The documented archive counts are reported
+only as non-fatal baseline findings, so a legitimate replacement export can be investigated without
+redefining an evidence invariant. Diagnostics contain safe IDs and aggregate counts only.
+
 ## Test and validate changes
 
 Run the complete local and CI quality gate:
@@ -104,7 +121,8 @@ pnpm build
 ```
 
 Before handing off a database-related change, run `pnpm quality`, migrate a fresh temporary database,
-and run `db:status` against that same database. This mirrors `.github/workflows/ci.yml`.
+run `db:status`, and run `validate` against that same database. This mirrors the database checks used
+for evidence-layer work while keeping private inputs outside CI.
 
 ## Rebuild the generated database
 

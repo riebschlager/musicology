@@ -223,3 +223,40 @@ privacy-reviewed `Source record was rejected` summary. Raw rows, parser errors, 
 source values are never diagnostic data. Human and JSON summaries report reconciled file, accepted,
 duplicated, and rejected counts plus both fingerprint contract versions without returning paths or
 source values.
+
+## Evidence-layer validation (P1-06)
+
+`validate` is a read-only command over the current migrated database and configured input root. All
+database queries execute in one deferred read transaction so totals, provenance, fingerprints,
+integrity checks, and findings observe a consistent committed snapshot. The command opens only an
+existing database in SQLite read-only mode; it does not initialize a missing database or change its
+journal mode. It rehashes the exact bytes at every registered evidence path and reports missing,
+unreadable, non-regular, escaped-root, size-mismatched, or hash-mismatched files without updating file
+metadata or source evidence. This makes a changed previously registered path visible even when no
+importer is run.
+
+Succeeded ingest runs must reconcile both internally and against persisted registrations, accepted
+occurrences, rejection rows, and duplicate groups. Failed runs must own no registered files,
+accepted evidence, or rejections; a still-running run is an actionable invariant error. For each new
+file, its first and last ingest runs must be successful runs for the matching source command, and
+accepted or rejected historical records must belong to the run that first registered their file.
+The union of accepted and rejected zero-based ordinals must be collision-free. Gaps represent
+count-only excluded Spotify records, so known internal gaps cannot exceed `excluded_count` and no
+persisted ordinal can exceed the run's discovered-record total. Trailing excluded rows and files
+containing only excluded rows have no stored ordinal by design and are validated through reconciled
+run totals rather than invented provenance.
+
+Validation recomputes `spotify-source-v1` and `lastfm-source-v1` from the approved stored
+projections, verifies every Spotify parent has its required source row, and verifies every Last.fm
+source occurrence resolves to compatible unique evidence. Rejections must retain file/ordinal
+provenance, a source-specific stable reason code, and the fixed privacy-reviewed summary. Failed
+ingest runs must use one of the fixed privacy-reviewed lifecycle summaries; successful and running
+runs must not store an error summary. SQLite integrity and foreign-key checks complete the invariant
+set.
+
+Errors use only stable codes, safe database IDs, and aggregate counts. Paths, hashes, source display
+text, raw payloads, and stored rejection text are never copied into diagnostics. The aggregate
+Spotify and Last.fm observations recorded in `PROJECT_APPROACH.md` on 2026-07-17 are versioned
+comparison baselines only. Deviations are non-fatal `archive_baseline_deviation` findings rather
+than permanent truth or acceptance constraints. Coverage reporting and richer gap analysis remain
+P1-07 work.

@@ -16,6 +16,7 @@ pnpm install --frozen-lockfile
 pnpm db:migrate
 pnpm quality
 pnpm db:status
+pnpm validate
 ```
 
 These are the same project entry points used by CI. No Last.fm credentials or private files under
@@ -33,6 +34,10 @@ the dedicated Last.fm input directory:
 ```sh
 pnpm import:lastfm-export data/inputs/lastfm/history.json
 ```
+
+After imports, `pnpm validate` verifies source hashes, evidence invariants, ingest totals,
+fingerprints, rejection diagnostics, foreign keys, and SQLite integrity without changing inputs or
+derived state.
 
 See [Developer workflow](docs/developer-workflow.md) for fresh-checkout verification, safe database
 rebuilds, command details, and troubleshooting. See [Data handling](docs/data-handling.md) before

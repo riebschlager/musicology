@@ -20,7 +20,8 @@
     "lint": "biome lint .",
     "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
     "test": "node --test",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "validate": "node src/cli/validate.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

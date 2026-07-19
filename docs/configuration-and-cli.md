@@ -88,3 +88,29 @@ source and overlap fingerprint contract versions. Equivalent source fingerprints
 file/ordinal occurrence provenance while sharing one unique approved evidence payload. Unchanged or
 byte-identical renamed content is a no-op. Failures use fixed safe diagnostics and never emit paths,
 raw records, unknown fields, or source values.
+
+## Evidence validation
+
+Run evidence-layer validation after historical imports:
+
+```sh
+pnpm validate
+pnpm validate --json
+```
+
+The command is read-only and requires a fully migrated database. It uses one deferred read
+transaction so every database check observes a consistent committed snapshot. Validation opens only
+an existing database in SQLite read-only mode; a missing database fails without creating the database
+or its parent directories, and validation never changes journal mode. It verifies every registered
+file against the bytes at its configured evidence path, reconciles ingest-run totals with persisted
+evidence, validates file/record/run ownership, validates ordinal ranges and excluded-record gaps,
+recomputes approved record fingerprints, checks Last.fm occurrence links, validates fixed rejection
+codes and summaries, and validates status-compatible ingest-run error summaries before running
+SQLite integrity and foreign-key checks. Errors identify only safe database IDs, counts, and
+invariant names; they never return paths, display text, hashes, stored diagnostic text, or raw source
+records.
+
+The aggregate archive observations documented on 2026-07-17 are comparison baselines, not database
+constraints. Differences appear as `archive_baseline_deviation` findings and do not make an
+otherwise valid database fail. A changed or missing file at a registered path is an invariant error
+because the stored evidence can no longer be reproduced from that path.
