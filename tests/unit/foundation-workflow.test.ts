@@ -25,7 +25,8 @@ describe("foundation developer workflow", () => {
   it("keeps CI isolated from private inputs and secrets", () => {
     const workflow = readProjectFile(".github/workflows/ci.yml");
 
-    assert.match(workflow, /MUSICOLOGY_DATA_DIR: \$\{\{ runner\.temp \}\}\/musicology-data/);
+    assert.match(workflow, /MUSICOLOGY_DATA_DIR=\$RUNNER_TEMP\/musicology-data/);
+    assert.match(workflow, />> "\$GITHUB_ENV"/);
     assert.doesNotMatch(workflow, /data\/inputs/);
     assert.doesNotMatch(workflow, /LASTFM_(?:API_KEY|USERNAME)/);
     assert.doesNotMatch(workflow, /secrets\./);
