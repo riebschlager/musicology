@@ -68,3 +68,47 @@ data. A failed attempt cannot leave a completed successful run, a registered fil
 or partial evidence from the attempt. If the completion clock is unavailable or invalid while a
 failure is being finalized, the already validated run start time is used as the failure completion
 time so the audit row does not remain `running`.
+
+## Spotify audio boundary (P1-02)
+
+Spotify discovery accepts only explicit regular files inside the configured evidence root whose
+case-sensitive basenames match either
+`Streaming_History_Audio_<year>_<part>.json` or
+`Streaming_History_Audio_<start-year>-<end-year>_<part>.json`. Candidate directories, symlinks,
+video-history files, arbitrary JSON files, and paths outside the evidence root are not discovered.
+Filesystem-resolved candidates must also remain inside the filesystem-resolved evidence root, so a
+symlinked parent directory cannot bypass the evidence boundary. Discovery is deduplicated and sorted
+by normalized evidence-relative path. It does not recursively scan directories or infer a source
+from JSON content; callers provide candidate file paths.
+
+A supported file must contain one top-level JSON array. Each array member receives its zero-based
+source ordinal and exactly one boundary classification:
+
+- `track` when it has a valid Spotify track URI and the required track projection;
+- `excluded` / `episode_or_audiobook` when track identity is absent and supported podcast or
+  audiobook markers are present;
+- `excluded` / `video_or_unsupported` when track identity and supported non-music markers are both
+  absent; or
+- `malformed` with a stable safe reason when the record shape, field types, timestamp, duration,
+  URI, or required track display text is invalid.
+
+Missing optional evidence fields become `null`; approved display strings are otherwise preserved
+exactly, including Unicode and punctuation. A Spotify track URI must contain the `spotify:track:`
+prefix followed by exactly 22 ASCII alphanumeric identifier characters. Zero-duration and short
+tracks remain valid evidence.
+The `ts` field must be an explicit UTC ISO 8601 instant with second or millisecond precision and is
+converted to non-negative Unix epoch milliseconds. It is the observed stop time. The boundary also
+derives a start instant by exact integer subtraction of `ms_played`; invalid, negative, or unsafe
+arithmetic rejects the record.
+
+The track projection allowlist is: observed stop epoch milliseconds, derived start epoch
+milliseconds, milliseconds played, Spotify track URI, artist/album/track display text, playback
+start and end reasons, shuffle, skipped, offline, and the source `offline_timestamp` numeric value.
+File identity, record fingerprints, database persistence, duplicate grouping, and the importer CLI
+remain P1-03 work.
+
+Unknown source keys never enter the projection. In particular, the boundary does not return account
+names, IP addresses, user-agent strings, country, platform/device context, private-session state, or
+raw rejected payloads. File errors use the fixed `malformed_source_file` summary, while record
+rejections expose only `rejected_source_record` plus a stable reason code; parser messages and source
+values are not included.

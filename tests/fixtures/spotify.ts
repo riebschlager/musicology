@@ -26,7 +26,7 @@ const BASE_SPOTIFY_TRACK = {
   master_metadata_track_name: "Clockwork Garden",
   master_metadata_album_artist_name: "The Synthetic Signals",
   master_metadata_album_album_name: "Reserved Test Tones",
-  spotify_track_uri: "spotify:track:synthetic000000000001",
+  spotify_track_uri: "spotify:track:0000000000000000000001",
   episode_name: null,
   episode_show_name: null,
   spotify_episode_uri: null,
@@ -77,21 +77,21 @@ export const SPOTIFY_FIXTURE_CASES = [
       master_metadata_track_name: "雪のテスト — Café 🎧",
       master_metadata_album_artist_name: "Beyoncé de Prueba",
       master_metadata_album_album_name: "Señales синтетические",
-      spotify_track_uri: "spotify:track:synthetic000000000002",
+      spotify_track_uri: "spotify:track:0000000000000000000002",
     }),
   },
   {
     case: "time_boundary_before",
     record: buildSpotifyTrackFixture({
       ts: FIXTURE_TIMES.chicagoDstBefore,
-      spotify_track_uri: "spotify:track:synthetic000000000003",
+      spotify_track_uri: "spotify:track:0000000000000000000003",
     }),
   },
   {
     case: "time_boundary_after",
     record: buildSpotifyTrackFixture({
       ts: FIXTURE_TIMES.chicagoDstAfter,
-      spotify_track_uri: "spotify:track:synthetic000000000004",
+      spotify_track_uri: "spotify:track:0000000000000000000004",
     }),
   },
   {
@@ -102,7 +102,7 @@ export const SPOTIFY_FIXTURE_CASES = [
 
 const exactDuplicate = buildSpotifyTrackFixture({
   ts: "2026-02-03T04:05:06.789Z",
-  spotify_track_uri: "spotify:track:synthetic000000000005",
+  spotify_track_uri: "spotify:track:0000000000000000000005",
 });
 
 export const SPOTIFY_EXACT_DUPLICATE_FIXTURES = [
@@ -116,13 +116,13 @@ export const SPOTIFY_AMBIGUOUS_OVERLAP_FIXTURES = [
     ms_played: 180_000,
     master_metadata_track_name: "Ambiguous Echo",
     master_metadata_album_artist_name: "The Synthetic Signals",
-    spotify_track_uri: "spotify:track:synthetic000000000006",
+    spotify_track_uri: "spotify:track:0000000000000000000006",
   }),
   buildSpotifyTrackFixture({
     ts: FIXTURE_TIMES.ambiguousSpotifySecondStop,
     ms_played: 182_000,
     master_metadata_track_name: "Ambiguous Echo",
     master_metadata_album_artist_name: "The Synthetic Signals",
-    spotify_track_uri: "spotify:track:synthetic000000000006",
+    spotify_track_uri: "spotify:track:0000000000000000000006",
   }),
 ] as const;
