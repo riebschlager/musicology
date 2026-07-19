@@ -1,0 +1,32 @@
+{
+  "name": "musicology",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A local-first personal music-history laboratory",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=9 <10"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "db:migrate": "node src/cli/db.ts migrate",
+    "db:status": "node src/cli/db.ts status",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "test": "node --test",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.4",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.11.1"
+  }
+}
