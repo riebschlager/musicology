@@ -148,3 +148,41 @@ never diagnostic data. Valid excluded records are not persisted as track evidenc
 their total, while command summaries also separate episode/audiobook from video/unsupported counts.
 Human and JSON summaries report reconciled file and record counts, the no-op state, duplicate count,
 non-music categories, and fingerprint version without returning file paths or source values.
+
+## Last.fm export boundary (P1-04)
+
+Last.fm does not provide an official export filename family. Discovery therefore uses the dedicated
+source directory as the explicit declaration: any regular file with a case-sensitive `.json`
+extension directly inside `<inputs>/lastfm` is a candidate Last.fm export. Nested files, symlinks,
+other extensions, files elsewhere under the evidence root, and paths outside that root are not
+discovered. Candidates are deduplicated and sorted by normalized evidence-relative path. Discovery
+does not recursively scan the directory or infer a source from arbitrary JSON content.
+
+A supported file is one top-level JSON array. Every array member receives its zero-based source
+ordinal and is either an approved `scrobble` or `malformed` with a stable safe reason. Required
+fields are a non-negative safe-integer `timestamp` in Unix epoch milliseconds and non-empty string
+`artist_name` and `track_name` values. The timestamp crosses the boundary unchanged as the canonical
+UTC epoch-millisecond representation. Required display text is checked with whitespace-aware
+emptiness rules but its decoded string is otherwise preserved exactly; no trimming,
+case-folding, or Unicode normalization changes the approved value.
+
+`album_name`, the artist/release/recording MusicBrainz identifiers, and `loved` are optional.
+Missing or `null` optional values remain unknown. Empty or whitespace-only optional text also becomes
+`null`; a present non-empty string is preserved exactly. A present `loved` value must be boolean.
+The approved projection contains only the canonical scrobble instant, original artist/album/track
+display text, the three available MusicBrainz identifiers, and loved state. Unknown keys and raw
+rejected records never cross the boundary. File and record diagnostics expose only fixed safe codes
+and reasons.
+
+Last.fm source fingerprint version `lastfm-source-v1` hashes the complete approved projection. It
+therefore preserves distinctions in album text, MusicBrainz identifiers, and loved state as well as
+the canonical instant and exact artist and track display strings. File path, ordinal, origin, ingest
+time, and unknown fields remain outside the source-record identity.
+
+The separate `lastfm-overlap-v1` fingerprint hashes only the canonical instant plus exact artist and
+track display strings. It is a candidate key for later export/API overlap handling because album and
+MusicBrainz metadata can be absent or populated differently by origin and loved state can change.
+An overlap-key match never replaces the complete source fingerprint, authorizes evidence deletion,
+or resolves a strong-identifier conflict. Persistence, occurrence provenance, conflict handling, and
+uniqueness semantics remain P1-05 work. A change to either identity's fields or meaning requires a
+new version.
