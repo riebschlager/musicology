@@ -114,3 +114,33 @@ The aggregate archive observations documented on 2026-07-17 are comparison basel
 constraints. Differences appear as `archive_baseline_deviation` findings and do not make an
 otherwise valid database fail. A changed or missing file at a registered path is an invariant error
 because the stored evidence can no longer be reproduced from that path.
+
+## Evidence coverage report
+
+Produce the versioned evidence-layer coverage report after historical imports:
+
+```sh
+pnpm report:coverage
+pnpm report:coverage --json
+```
+
+The command is read-only, requires a fully migrated existing database, and observes one deferred
+read snapshot. Human output is a concise source summary. JSON output is the deterministic
+`coverage-v1` automation contract: source-evidence occurrence counts by presentation-timezone year,
+UTC observed ranges, accepted/rejected/non-music totals, exact-fingerprint duplicate groups and
+extra occurrences, nullable approved-field rates, and same-source gaps of at least 365 exact
+24-hour days. It also declares generation time, timezone, input content hashes, report semantics,
+and that canonical-event counts are not included. Repeating the report over unchanged evidence
+changes only `generatedAt`.
+
+For the local private-archive review in P1-08, compare the aggregate report with the versioned
+observations in `PROJECT_APPROACH.md`:
+
+```sh
+pnpm report:coverage --compare-archive-baseline
+pnpm report:coverage --json --compare-archive-baseline
+```
+
+The comparison is opt-in, reports aggregate deviations without failing the command, and is not part
+of CI. Input paths and source display values are omitted; input hashes are included because they are
+the explicit evidence identity required by the report contract.

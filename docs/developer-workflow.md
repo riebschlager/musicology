@@ -98,6 +98,26 @@ foreign-key violations, or SQLite integrity failures. The documented archive cou
 only as non-fatal baseline findings, so a legitimate replacement export can be investigated without
 redefining an evidence invariant. Diagnostics contain safe IDs and aggregate counts only.
 
+## Report historical evidence coverage
+
+Generate the first coverage report from the same migrated database:
+
+```sh
+pnpm report:coverage
+pnpm report:coverage --json
+```
+
+The human form is concise; JSON is the stable automation form and includes input hashes without
+including input paths or source record values. Year grouping uses `MUSICOLOGY_TIMEZONE`, which
+defaults to `America/Chicago`. The report counts source evidence occurrences and explicitly does not
+claim to count future reconciled canonical events.
+
+The documented private-archive baseline comparison is a local P1-08 workflow, not a CI check:
+
+```sh
+pnpm report:coverage --compare-archive-baseline
+```
+
 ## Test and validate changes
 
 Run the complete local and CI quality gate:

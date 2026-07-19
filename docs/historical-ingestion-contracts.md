@@ -258,5 +258,29 @@ Errors use only stable codes, safe database IDs, and aggregate counts. Paths, ha
 text, raw payloads, and stored rejection text are never copied into diagnostics. The aggregate
 Spotify and Last.fm observations recorded in `PROJECT_APPROACH.md` on 2026-07-17 are versioned
 comparison baselines only. Deviations are non-fatal `archive_baseline_deviation` findings rather
-than permanent truth or acceptance constraints. Coverage reporting and richer gap analysis remain
-P1-07 work.
+than permanent truth or acceptance constraints.
+
+## Evidence coverage report (P1-07)
+
+`report:coverage` opens only an existing, fully migrated database in read-only mode and computes the
+whole report inside one deferred transaction. Report version `coverage-v1` counts immutable source
+evidence occurrences: each Spotify source row is one occurrence, and each Last.fm occurrence link is
+one occurrence even when several links share one fingerprint-unique payload. These are not canonical
+listening-event counts; the JSON contract states that distinction and emits `canonicalEvents: null`.
+
+For each source, the report includes occurrence counts grouped by calendar year in the explicitly
+configured IANA presentation timezone, UTC first/last observations, accepted/rejected/non-music
+totals, exact-fingerprint duplicate group and extra-occurrence counts, nullable approved-field
+missing counts/rates, and long gaps. A long gap is a pair of consecutive observations from the same
+source separated by at least 365 exact 24-hour days. This duration rule is intentionally independent
+of daylight-saving and calendar-year length; changing it requires a report-version change.
+
+The complete JSON report also includes its version, ISO UTC generation time, timezone, registered
+input content hashes ordered by source and hash, and evidence-layer semantics. Paths and source
+display values are omitted. Ordering is explicit throughout, so reports over unchanged evidence are
+identical except for the declared `generatedAt` metadata.
+
+`--compare-archive-baseline` adds an opt-in comparison against the aggregate
+`approach-2026-07-17` observations shared with evidence validation. Deviations are informational and
+do not change the command exit status. This supports the local P1-08 private-archive check but is not
+required by CI and does not embed private records in tests or outputs.

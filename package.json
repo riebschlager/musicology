@@ -19,6 +19,7 @@
     "import:spotify": "node src/cli/import-spotify.ts",
     "lint": "biome lint .",
     "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "report:coverage": "node src/cli/report-coverage.ts",
     "test": "node --test",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "validate": "node src/cli/validate.ts"

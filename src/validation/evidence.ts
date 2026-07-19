@@ -10,6 +10,7 @@ import {
 } from "../importers/lastfm-export/boundary.ts";
 import { SpotifyRecordRejectionReason } from "../importers/spotify/boundary.ts";
 import { fingerprintSpotifyTrackRecord } from "../importers/spotify/persistence.ts";
+import { ARCHIVE_BASELINE } from "../reporting/archive-baseline.ts";
 
 export interface EvidenceValidationIssue {
   readonly code: string;
@@ -106,16 +107,6 @@ interface RejectionRow extends SqliteRow {
   readonly error_code: string;
   readonly safe_diagnostic_summary: string;
 }
-
-const ARCHIVE_BASELINE = {
-  spotifyAccepted: 61_031,
-  spotifyDuplicated: 401,
-  spotifyExcluded: 83,
-  spotifyRejected: 0,
-  lastfmAccepted: 62_266,
-  lastfmDuplicated: 0,
-  lastfmRejected: 0,
-} as const;
 
 function addError(errors: EvidenceValidationIssue[], code: string, message: string): void {
   errors.push({ code, message });
