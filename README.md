@@ -49,5 +49,6 @@ working with personal exports.
 - [Phased project plan](PROJECT_PLAN.md)
 - [Configuration and CLI conventions](docs/configuration-and-cli.md)
 - [Database schema](docs/database-schema.md)
+- [Phase 1 private archive import](docs/phase-1-private-archive-import.md)
 - [Migration policy](docs/migrations.md)
 - [Toolchain](docs/toolchain.md)

@@ -168,7 +168,21 @@ export function classifyLastfmRecord(value: unknown): LastfmRecordClassification
   };
 }
 
-/** Parses a complete supported Last.fm export and classifies every array member. */
+function classifyLastfmStatsRecord(value: unknown): LastfmRecordClassification {
+  if (!isObjectRecord(value)) {
+    return malformed(LastfmRecordRejectionReason.InvalidRecord);
+  }
+
+  return classifyLastfmRecord({
+    album_name: value.album,
+    artist_name: value.artist,
+    release_musicbrainz_id: value.albumId,
+    timestamp: value.date,
+    track_name: value.track,
+  });
+}
+
+/** Parses a complete supported Last.fm export and classifies every source record. */
 export function parseLastfmExport(contents: string): readonly LastfmClassifiedRecord[] {
   let parsed: unknown;
   try {
@@ -176,9 +190,16 @@ export function parseLastfmExport(contents: string): readonly LastfmClassifiedRe
   } catch {
     throw new LastfmFileBoundaryError();
   }
-  if (!Array.isArray(parsed)) {
+  if (Array.isArray(parsed)) {
+    return parsed.map((value, ordinal) => ({ ordinal, ...classifyLastfmRecord(value) }));
+  }
+
+  if (!isObjectRecord(parsed) || !Array.isArray(parsed.scrobbles)) {
     throw new LastfmFileBoundaryError();
   }
 
-  return parsed.map((value, ordinal) => ({ ordinal, ...classifyLastfmRecord(value) }));
+  return parsed.scrobbles.map((value, ordinal) => ({
+    ordinal,
+    ...classifyLastfmStatsRecord(value),
+  }));
 }

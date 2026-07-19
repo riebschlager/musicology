@@ -27,6 +27,7 @@ import {
 const PRIVATE_SENTINEL = "private-source-value-must-not-escape";
 
 function importValidSyntheticEvidence(workspace: TemporaryTestWorkspace): {
+  readonly lastfmPath: string;
   readonly spotifyPath: string;
 } {
   const spotifyPath = workspace.writeJsonFixture("spotify/Streaming_History_Audio_2026_0.json", [
@@ -54,7 +55,7 @@ function importValidSyntheticEvidence(workspace: TemporaryTestWorkspace): {
     now: () => 1_800_000_001_000,
     schemaVersion: "4",
   });
-  return { spotifyPath };
+  return { lastfmPath, spotifyPath };
 }
 
 describe("evidence-layer validation", () => {
@@ -105,6 +106,32 @@ describe("evidence-layer validation", () => {
       );
       const after = workspace.connection
         .prepare<{ readonly count: number }>("SELECT count(*) AS count FROM spotify_play_source")
+        .get()?.count;
+
+      assert.equal(validation.ok, false);
+      assert.ok(validation.errors.some((error) => error.code === "source_file_changed"));
+      assert.equal(after, before);
+    });
+  });
+
+  it("resolves an opaque Last.fm locator and detects changed bytes at its private path", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      const { lastfmPath } = importValidSyntheticEvidence(workspace);
+      writeFileSync(lastfmPath, "[]\n", "utf8");
+
+      const before = workspace.connection
+        .prepare<{ readonly count: number }>(
+          "SELECT count(*) AS count FROM lastfm_scrobble_occurrence",
+        )
+        .get()?.count;
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      const after = workspace.connection
+        .prepare<{ readonly count: number }>(
+          "SELECT count(*) AS count FROM lastfm_scrobble_occurrence",
+        )
         .get()?.count;
 
       assert.equal(validation.ok, false);

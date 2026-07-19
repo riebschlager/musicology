@@ -8,6 +8,7 @@ import {
   fingerprintLastfmScrobble,
   LastfmRecordRejectionReason,
 } from "../importers/lastfm-export/boundary.ts";
+import { resolveLastfmEvidenceLocator } from "../importers/lastfm-export/locator.ts";
 import { SpotifyRecordRejectionReason } from "../importers/spotify/boundary.ts";
 import { fingerprintSpotifyTrackRecord } from "../importers/spotify/persistence.ts";
 import { ARCHIVE_BASELINE } from "../reporting/archive-baseline.ts";
@@ -140,7 +141,11 @@ function validateSourceFiles(
   const resolvedRoot = path.resolve(evidenceRoot);
 
   for (const file of files) {
-    const candidate = path.resolve(resolvedRoot, file.relative_path);
+    const storedCandidate = path.resolve(resolvedRoot, file.relative_path);
+    const candidate =
+      file.source_type === "lastfm_export" && !existsSync(storedCandidate)
+        ? (resolveLastfmEvidenceLocator(resolvedRoot, file.relative_path) ?? storedCandidate)
+        : storedCandidate;
     if (candidate !== resolvedRoot && !candidate.startsWith(`${resolvedRoot}${path.sep}`)) {
       addError(
         errors,

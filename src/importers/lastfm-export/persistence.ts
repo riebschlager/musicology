@@ -20,6 +20,7 @@ import {
   parseLastfmExport,
 } from "./boundary.ts";
 import { LastfmExportDiscovery } from "./discovery.ts";
+import { lastfmEvidenceLocator } from "./locator.ts";
 
 interface ExistingLastfmEvidenceRow extends SqliteRow {
   readonly source_record_id: number;
@@ -189,7 +190,10 @@ export function importLastfmExportFiles(
 
       for (const file of discovered) {
         const hashedFile = hashSourceFile(file);
-        const registration = context.registerSourceFile(hashedFile);
+        const registration = context.registerSourceFile({
+          ...hashedFile,
+          relativePath: lastfmEvidenceLocator(hashedFile.relativePath),
+        });
         if (registration.status === "already_registered") {
           continue;
         }

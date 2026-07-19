@@ -81,7 +81,9 @@ pnpm import:lastfm-export --json data/inputs/lastfm/history.json
 
 The command accepts regular `.json` files only when they are direct children of
 `MUSICOLOGY_INPUTS_DIR/lastfm`; it never scans the directory. Relative arguments are resolved from
-the current working directory. At least one path is required.
+the current working directory. At least one path is required. The database stores a versioned,
+hashed path locator rather than the arbitrary Last.fm filename because that filename may contain an
+account username; validation resolves the locator locally without returning the filename.
 
 Human and JSON results include reconciled file, accepted, duplicated, and rejected counts plus the
 source and overlap fingerprint contract versions. Equivalent source fingerprints retain separate

@@ -158,15 +158,23 @@ source directory as the explicit declaration: any regular file with a case-sensi
 extension directly inside `<inputs>/lastfm` is a candidate Last.fm export. Nested files, symlinks,
 other extensions, files elsewhere under the evidence root, and paths outside that root are not
 discovered. Candidates are deduplicated and sorted by normalized evidence-relative path. Discovery
-does not recursively scan the directory or infer a source from arbitrary JSON content.
+does not recursively scan the directory or infer a source from arbitrary JSON content. Because an
+arbitrary Last.fm filename can contain an account username, persistence replaces it with a stable
+`lastfm-path-v1` SHA-256 locator derived from the evidence-relative path. Validation resolves that
+opaque locator against direct JSON children without storing or reporting the private filename. The
+locator remains stable at one physical path, so changed bytes at that path are still detected.
 
-A supported file is one top-level JSON array. Every array member receives its zero-based source
-ordinal and is either an approved `scrobble` or `malformed` with a stable safe reason. Required
-fields are a non-negative safe-integer `timestamp` in Unix epoch milliseconds and non-empty string
-`artist_name` and `track_name` values. The timestamp crosses the boundary unchanged as the canonical
-UTC epoch-millisecond representation. Required display text is checked with whitespace-aware
-emptiness rules but its decoded string is otherwise preserved exactly; no trimming,
-case-folding, or Unicode normalization changes the approved value.
+A supported file is either the flat top-level array used by the normalized import contract or a
+`lastfmstats` object containing a `scrobbles` array. Every source array member receives its
+zero-based ordinal and is either an approved `scrobble` or `malformed` with a stable safe reason.
+Flat records require a non-negative safe-integer `timestamp` in Unix epoch milliseconds and
+non-empty string `artist_name` and `track_name` values. The `lastfmstats` projection maps `date`,
+`artist`, `album`, `track`, and `albumId` to the same approved fields; `albumId` is the release
+MusicBrainz identifier when present. The wrapper's account `username` and all unknown fields are
+discarded at the boundary. The timestamp crosses unchanged as the canonical UTC epoch-millisecond
+representation. Required display text is checked with whitespace-aware emptiness rules but its
+decoded string is otherwise preserved exactly; no trimming, case-folding, or Unicode normalization
+changes the approved value.
 
 `album_name`, the artist/release/recording MusicBrainz identifiers, and `loved` are optional.
 Missing or `null` optional values remain unknown. Empty or whitespace-only optional text also becomes

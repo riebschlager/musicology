@@ -97,6 +97,9 @@ or Last.fm occurrence links, unsafe rejection metadata, unsafe ingest-run error 
 foreign-key violations, or SQLite integrity failures. The documented archive counts are reported
 only as non-fatal baseline findings, so a legitimate replacement export can be investigated without
 redefining an evidence invariant. Diagnostics contain safe IDs and aggregate counts only.
+Arbitrary Last.fm filenames are represented in SQLite by opaque path locators; validation resolves
+them against direct JSON children of the private Last.fm input directory without reporting or
+persisting a filename that may contain an account username.
 
 ## Report historical evidence coverage
 

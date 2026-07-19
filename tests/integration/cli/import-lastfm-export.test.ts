@@ -15,6 +15,10 @@ interface CountRow extends SqliteRow {
   readonly count: number;
 }
 
+interface SourceFilePathRow extends SqliteRow {
+  readonly relative_path: string;
+}
+
 function runCli(workspace: TemporaryTestWorkspace, args: readonly string[]) {
   return spawnSync(
     process.execPath,
@@ -73,6 +77,50 @@ describe("import:lastfm-export CLI", () => {
           .get()?.count,
         2,
       );
+    });
+  });
+
+  it("imports a lastfmstats wrapper while excluding its username", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      const privateMarker = "synthetic-private-lastfm-username";
+      const fixturePath = workspace.writeJsonFixture(`lastfm/${privateMarker}.json`, {
+        username: privateMarker,
+        scrobbles: [
+          {
+            album: "Reserved Test Tones",
+            albumId: "00000000-0000-4000-8000-000000000002",
+            artist: "The Synthetic Signals",
+            date: 1_767_322_858_678,
+            track: "Clockwork Garden",
+          },
+        ],
+      });
+
+      const imported = runCli(workspace, ["--json", fixturePath]);
+      assert.equal(imported.status, 0, imported.stderr);
+      assert.equal(imported.stderr, "");
+      assert.equal(imported.stdout.includes(privateMarker), false);
+      const result = JSON.parse(imported.stdout) as {
+        readonly data: { readonly records: { readonly accepted: number } };
+      };
+      assert.equal(result.data.records.accepted, 1);
+      assert.equal(
+        workspace.connection
+          .prepare<CountRow>("SELECT count(*) AS count FROM lastfm_scrobble_occurrence")
+          .get()?.count,
+        1,
+      );
+      assert.equal(
+        JSON.stringify(
+          workspace.connection.prepare("SELECT * FROM lastfm_scrobble_source").get(),
+        ).includes(privateMarker),
+        false,
+      );
+      const sourceFile = workspace.connection
+        .prepare<SourceFilePathRow>("SELECT relative_path FROM source_file")
+        .get();
+      assert.match(sourceFile?.relative_path ?? "", /^lastfm\/path-[0-9a-f]{64}\.json$/);
+      assert.equal(sourceFile?.relative_path.includes(privateMarker), false);
     });
   });
 

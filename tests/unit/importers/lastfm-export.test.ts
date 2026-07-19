@@ -280,7 +280,7 @@ describe("Last.fm record boundary", () => {
 });
 
 describe("Last.fm file boundary", () => {
-  it("requires an array and classifies every record with a stable zero-based ordinal", () => {
+  it("classifies every flat-array record with a stable zero-based ordinal", () => {
     const parsed = parseLastfmExport(
       JSON.stringify([
         buildLastfmScrobbleFixture(),
@@ -299,11 +299,62 @@ describe("Last.fm file boundary", () => {
     );
   });
 
-  it("rejects invalid JSON and non-array JSON with one fixed safe file error", () => {
+  it("projects the lastfmstats wrapper without exposing its account username", () => {
+    const privateMarker = "synthetic-private-account-name";
+    const parsed = parseLastfmExport(
+      JSON.stringify({
+        username: privateMarker,
+        scrobbles: [
+          {
+            album: "Reserved Test Tones",
+            albumId: "00000000-0000-4000-8000-000000000002",
+            artist: "The Synthetic Signals",
+            date: 1_767_322_858_678,
+            track: "Clockwork Garden",
+          },
+          {
+            album: "",
+            albumId: "",
+            artist: "Unicode 演奏者",
+            date: 1_767_322_858_679,
+            track: "雪",
+          },
+          { album: "Malformed", albumId: "", artist: "", date: "invalid", track: "Rejected" },
+        ],
+      }),
+    );
+
+    assert.deepEqual(
+      parsed.map(({ kind, ordinal }) => ({ kind, ordinal })),
+      [
+        { kind: "scrobble", ordinal: 0 },
+        { kind: "scrobble", ordinal: 1 },
+        { kind: "malformed", ordinal: 2 },
+      ],
+    );
+    assert.equal(JSON.stringify(parsed).includes(privateMarker), false);
+    const first = parsed[0];
+    assert.equal(first?.kind, "scrobble");
+    if (first?.kind === "scrobble") {
+      assert.deepEqual(first.record, {
+        albumName: "Reserved Test Tones",
+        artistMusicbrainzId: null,
+        artistName: "The Synthetic Signals",
+        loved: null,
+        recordingMusicbrainzId: null,
+        releaseMusicbrainzId: "00000000-0000-4000-8000-000000000002",
+        scrobbledAtEpochMs: 1_767_322_858_678,
+        trackName: "Clockwork Garden",
+      });
+    }
+  });
+
+  it("rejects invalid JSON and unsupported top-level shapes with one fixed safe file error", () => {
     const privateMarker = "synthetic-sensitive-marker";
     for (const contents of [
       `[{"unknown_private_field":"${privateMarker}"}`,
       "{}",
+      '{"scrobbles":null}',
       "null",
       '"array"',
     ]) {
