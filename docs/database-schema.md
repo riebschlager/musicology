@@ -1,10 +1,21 @@
-# Initial database schema
+# Database schema
 
-The initial schema is defined by `migrations/0001_create_initial_schema.sql`. It separates
+The initial schema is defined by `migrations/0001_create_initial_schema.sql`. P1-01 adds operational
+ingest counters through `migrations/0002_add_ingest_lifecycle_counts.sql`. The schema separates
 operational metadata, immutable source evidence, music identity, reconciliation, canonical events,
 genre enrichment, synchronization cursors, and safe rejection diagnostics. Analytical aggregates
 remain queries over these layers; the schema deliberately contains no speculative materialized
 analysis tables.
+
+## Ingest lifecycle counts
+
+`ingest_run` keeps discovered, accepted, duplicated, excluded, and rejected record counts separately
+from discovered, newly registered, unchanged/no-op, and unsupported file counts. Duplicate rows are
+accepted source evidence, so `duplicated_count` is a subset of `accepted_count`. Excluded non-music
+records use `excluded_count`; `unsupported_count` is reserved for unsupported candidate files. The
+database rejects a successful run whose record totals, duplicate bound, or file totals do not
+reconcile. The shared count and transaction contract is documented in
+[`historical-ingestion-contracts.md`](historical-ingestion-contracts.md).
 
 ## Canonical timestamp representation
 
@@ -41,4 +52,3 @@ The schema stores only projected, approved fields. It has no columns for IP addr
 names, user-agent strings, Spotify country or platform/device context, secrets or API keys, or raw
 rejected payloads. `rejected_source_record.safe_diagnostic_summary` may contain only a sanitized
 description and error code. Last.fm cursor scope is a one-way fingerprint rather than account text.
-

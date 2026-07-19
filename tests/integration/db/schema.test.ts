@@ -132,6 +132,25 @@ describe("initial schema contract", () => {
         "safe_diagnostic_summary",
         "rejected_at_epoch_ms",
       ]);
+      assert.deepEqual(columns(connection, "ingest_run"), [
+        "id",
+        "command_type",
+        "started_at_epoch_ms",
+        "completed_at_epoch_ms",
+        "status",
+        "schema_version",
+        "rule_version",
+        "discovered_count",
+        "accepted_count",
+        "rejected_count",
+        "unsupported_count",
+        "safe_error_summary",
+        "discovered_file_count",
+        "registered_file_count",
+        "noop_file_count",
+        "duplicated_count",
+        "excluded_count",
+      ]);
     });
   });
 
@@ -214,6 +233,55 @@ describe("initial schema contract", () => {
     });
   });
 
+  it("enforces successful ingest-run count reconciliation", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+
+      const insertSucceededRun = connection.prepare(
+        `INSERT INTO ingest_run
+          (command_type, started_at_epoch_ms, completed_at_epoch_ms, status, schema_version,
+           discovered_count, accepted_count, rejected_count, unsupported_count,
+           discovered_file_count, registered_file_count, noop_file_count, duplicated_count,
+           excluded_count)
+         VALUES
+          ('spotify_import', 1, 2, 'succeeded', '2',
+           @discovered, @accepted, @rejected, @unsupported,
+           @discoveredFiles, @registeredFiles, @noopFiles, @duplicated, @excluded)`,
+      );
+      const validCounts = {
+        discovered: 3,
+        accepted: 2,
+        rejected: 1,
+        unsupported: 1,
+        discoveredFiles: 2,
+        registeredFiles: 1,
+        noopFiles: 0,
+        duplicated: 1,
+        excluded: 0,
+      } as const;
+
+      for (const invalidCounts of [
+        { ...validCounts, discovered: 4 },
+        { ...validCounts, duplicated: 3 },
+        { ...validCounts, discoveredFiles: 3 },
+      ]) {
+        assert.throws(
+          () => insertSucceededRun.run(invalidCounts),
+          /succeeded ingest_run counts do not reconcile/,
+        );
+      }
+
+      const inserted = insertSucceededRun.run(validCounts);
+      assert.throws(
+        () =>
+          connection
+            .prepare("UPDATE ingest_run SET accepted_count = 1 WHERE id = ?")
+            .run([Number(inserted.lastInsertRowid)]),
+        /succeeded ingest_run counts do not reconcile/,
+      );
+    });
+  });
+
   it("contains no excluded or raw-payload fields anywhere in the schema", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       applyMigrations(connection, migrationsDirectory);
@@ -244,7 +312,7 @@ describe("initial schema contract", () => {
       const first = applyMigrations(connection, migrationsDirectory);
       assert.deepEqual(
         first.appliedNow.map((migration) => migration.name),
-        ["create_initial_schema"],
+        ["create_initial_schema", "add_ingest_lifecycle_counts"],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);
       assert.deepEqual(connection.checkIntegrity(), {
