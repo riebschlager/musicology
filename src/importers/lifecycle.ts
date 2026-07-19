@@ -123,9 +123,9 @@ function registerSourceFile(
       .prepare<SourceFileRow>(
         `SELECT id, relative_path, source_type, byte_size, content_sha256
          FROM source_file
-         WHERE content_sha256 = @contentSha256`,
+         WHERE source_type = @sourceType AND content_sha256 = @contentSha256`,
       )
-      .get({ contentSha256: file.contentSha256 });
+      .get({ contentSha256: file.contentSha256, sourceType: file.sourceType });
   if (existing !== undefined) {
     if (existing.source_type !== file.sourceType || existing.byte_size !== file.byteSize) {
       throw new IngestLifecycleError(IngestIssueCode.MalformedFile);

@@ -1,11 +1,14 @@
 # Database schema
 
 The initial schema is defined by `migrations/0001_create_initial_schema.sql`. P1-01 adds operational
-ingest counters through `migrations/0002_add_ingest_lifecycle_counts.sql`. The schema separates
-operational metadata, immutable source evidence, music identity, reconciliation, canonical events,
-genre enrichment, synchronization cursors, and safe rejection diagnostics. Analytical aggregates
-remain queries over these layers; the schema deliberately contains no speculative materialized
-analysis tables.
+ingest counters through `migrations/0002_add_ingest_lifecycle_counts.sql`, and P1-05 adds Last.fm
+occurrence provenance through `migrations/0003_add_lastfm_occurrence_provenance.sql`.
+`migrations/0004_scope_source_file_hash_by_type.sql` scopes file-hash uniqueness to the declared
+source type so byte-identical files from different source formats retain independent registrations.
+The schema separates operational metadata, immutable source evidence, music identity,
+reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
+diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately
+contains no speculative materialized analysis tables.
 
 ## Ingest lifecycle counts
 
@@ -36,11 +39,18 @@ Spotify timestamps are observed stop times. A canonical start may later be deriv
 
 ## Enforceable provenance
 
+`source_file` identifies exact bytes within a declared source type. A content hash is unique for a
+given source type, so a renamed copy of the same source export is a no-op while byte-identical files
+declared as different formats remain separate evidence registrations.
+
 `source_record` is the common parent of `spotify_play_source` and `lastfm_scrobble_source`. This
 additional structural table lets canonical event links use a real foreign key while the source
 tables retain their distinct, approved fields. Exact Spotify duplicates may share a fingerprint
-but remain separate source rows. Last.fm fingerprints are unique so export/API overlap reuses the
-same evidence row.
+but remain separate source rows. A complete Last.fm source fingerprint identifies one unique
+`lastfm_scrobble_source` payload. Every accepted export occurrence—including an equivalent
+fingerprint—has a separate `source_record` linked through `lastfm_scrobble_occurrence`, preserving
+its file, ordinal, and origin while avoiding duplicate payload storage. Canonical duplicate
+interpretation and export/API overlap remain later work.
 
 External identifiers attach to a `music_entity` parent shared by artists, releases, and tracks.
 This likewise avoids an unenforceable polymorphic identifier reference. Display text remains in

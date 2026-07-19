@@ -68,3 +68,23 @@ byte-identical renamed file is reported as a no-op and adds no evidence. Import 
 codes and fixed summaries rather than paths, raw records, parser messages, or excluded field values.
 The complete persistence and fingerprint contract is documented in
 [`historical-ingestion-contracts.md`](historical-ingestion-contracts.md).
+
+## Last.fm historical export import
+
+After applying all migrations, import one or more explicitly named JSON exports directly from the
+dedicated Last.fm input directory:
+
+```sh
+pnpm import:lastfm-export data/inputs/lastfm/history.json
+pnpm import:lastfm-export --json data/inputs/lastfm/history.json
+```
+
+The command accepts regular `.json` files only when they are direct children of
+`MUSICOLOGY_INPUTS_DIR/lastfm`; it never scans the directory. Relative arguments are resolved from
+the current working directory. At least one path is required.
+
+Human and JSON results include reconciled file, accepted, duplicated, and rejected counts plus the
+source and overlap fingerprint contract versions. Equivalent source fingerprints retain separate
+file/ordinal occurrence provenance while sharing one unique approved evidence payload. Unchanged or
+byte-identical renamed content is a no-op. Failures use fixed safe diagnostics and never emit paths,
+raw records, unknown fields, or source values.

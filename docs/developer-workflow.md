@@ -64,6 +64,23 @@ Files remain read-only. Repeating the same content, including under another supp
 adds no source evidence. A failed multi-file command rolls back every source write from that command.
 The summary is safe to retain, but source files and generated databases remain private and ignored.
 
+## Import Last.fm historical export evidence
+
+Apply all migrations first, then explicitly name each supported JSON export directly inside the
+dedicated Last.fm input directory. The importer does not scan the directory:
+
+```sh
+pnpm db:migrate
+pnpm import:lastfm-export data/inputs/lastfm/history.json
+pnpm import:lastfm-export --json data/inputs/lastfm/history.json
+```
+
+Files remain read-only. Repeating unchanged or byte-identical renamed content adds no occurrence or
+payload evidence. Equivalent scrobble fingerprints retain separate ordinal provenance and are
+reported as duplicates. A failed multi-file command rolls back all source writes from that command.
+Summaries contain only aggregate counts and contract versions; exports and generated databases
+remain private and ignored.
+
 ## Test and validate changes
 
 Run the complete local and CI quality gate:

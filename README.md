@@ -2,8 +2,8 @@
 
 Musicology is a local-first system for building an explainable analytical dataset from personal
 Spotify and Last.fm listening history. The project has established its deterministic
-TypeScript/SQLite foundation and can persist supported historical Spotify audio exports as source
-evidence. Last.fm ingestion and cross-source reconciliation remain later tasks.
+TypeScript/SQLite foundation and can persist supported historical Spotify audio and Last.fm JSON
+exports as source evidence. Cross-source reconciliation remains a later task.
 
 ## Developer quick start
 
@@ -25,6 +25,13 @@ To import a private Spotify archive after setup, explicitly name each supported 
 
 ```sh
 pnpm import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
+```
+
+To import a private Last.fm history export, explicitly name each supported JSON file directly inside
+the dedicated Last.fm input directory:
+
+```sh
+pnpm import:lastfm-export data/inputs/lastfm/history.json
 ```
 
 See [Developer workflow](docs/developer-workflow.md) for fresh-checkout verification, safe database

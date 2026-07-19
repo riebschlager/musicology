@@ -12,9 +12,11 @@ file carries an absolute read path, a normalized repository-relative evidence pa
 separators with no absolute, empty, repeated, `.` or `..` segments, and its source type.
 
 The file content hash is lowercase SHA-256 over the exact bytes read from disk. Hashing does not
-parse, normalize, or rewrite the file. Registration is unique by both relative path and content
-hash. The same path and hash, or the same bytes under another path, is a no-op. Different bytes at a
-registered path fail safely as `source_file_changed` and do not modify existing evidence.
+parse, normalize, or rewrite the file. Registration is unique by relative path and by the combination
+of source type and content hash. The same path and hash, or the same bytes under another path for the
+same source type, is a no-op. Byte-identical files declared as different source types are registered
+independently. Different bytes at a registered path fail safely as `source_file_changed` and do not
+modify existing evidence.
 
 ## Record fingerprints
 
@@ -186,3 +188,38 @@ An overlap-key match never replaces the complete source fingerprint, authorizes 
 or resolves a strong-identifier conflict. Persistence, occurrence provenance, conflict handling, and
 uniqueness semantics remain P1-05 work. A change to either identity's fields or meaning requires a
 new version.
+
+## Last.fm export evidence persistence (P1-05)
+
+`import:lastfm-export` requires one or more explicit filesystem paths. Relative CLI paths are
+resolved from the caller's working directory. Every supported file must be a regular `.json` file
+directly inside `<inputs>/lastfm`; the command does not scan that directory. Duplicate path
+arguments are considered once, while unsupported explicit paths are counted without being opened
+or registered.
+
+Each supported file is hashed over its exact bytes and registered before parsing within the shared
+transaction. An unchanged path/hash or byte-identical file under another supported Last.fm filename
+is a file no-op and is not parsed again. New files retain every accepted scrobble occurrence at its
+zero-based ordinal, and their observed ranges are the minimum and maximum accepted scrobble
+instants. A malformed supported file or any other import failure rolls back all file registrations,
+evidence, occurrence links, rejections, range updates, and successful counts from the command,
+leaving only the fixed safe failed-run audit row.
+
+File-hash identity is scoped to the declared source type. Byte-identical files within the Last.fm
+source type are no-ops, while the same exact bytes declared independently as Spotify and Last.fm
+exports retain separate source-file registrations and cannot suppress one another's import.
+
+The complete `lastfm-source-v1` fingerprint is unique for a distinct approved evidence payload.
+Equivalent fingerprints share that immutable `lastfm_scrobble_source` payload, but every accepted
+export occurrence still receives its own `source_record` and `lastfm_scrobble_occurrence` link with
+the file, ordinal, and `export` origin. The first occurrence is accepted normally; later equivalent
+occurrences are also accepted provenance and are additionally counted as duplicated. This preserves
+source evidence without weakening fingerprint uniqueness or prematurely interpreting duplicates as
+canonical events. `lastfm-overlap-v1` remains a reported contract version and a later export/API
+candidate key; P1-05 does not perform API synchronization or overlap reconciliation.
+
+Malformed records persist only their ordinal, source links, stable P1-04 reason code, and the fixed
+privacy-reviewed `Source record was rejected` summary. Raw rows, parser errors, unknown fields, and
+source values are never diagnostic data. Human and JSON summaries report reconciled file, accepted,
+duplicated, and rejected counts plus both fingerprint contract versions without returning paths or
+source values.
