@@ -105,10 +105,46 @@ The track projection allowlist is: observed stop epoch milliseconds, derived sta
 milliseconds, milliseconds played, Spotify track URI, artist/album/track display text, playback
 start and end reasons, shuffle, skipped, offline, and the source `offline_timestamp` numeric value.
 File identity, record fingerprints, database persistence, duplicate grouping, and the importer CLI
-remain P1-03 work.
+are implemented by the P1-03 contract below.
 
 Unknown source keys never enter the projection. In particular, the boundary does not return account
 names, IP addresses, user-agent strings, country, platform/device context, private-session state, or
 raw rejected payloads. File errors use the fixed `malformed_source_file` summary, while record
 rejections expose only `rejected_source_record` plus a stable reason code; parser messages and source
 values are not included.
+
+## Spotify evidence persistence (P1-03)
+
+`import:spotify` requires one or more explicit filesystem paths. Relative CLI paths are resolved from
+the caller's working directory; every resolved file must still be a supported regular Spotify audio
+export inside `MUSICOLOGY_INPUTS_DIR`. Duplicate path arguments are considered once. Unsupported
+paths are counted without being opened, inferred from content, or registered. The command does not
+scan the input directory.
+
+Each supported file is hashed over its exact bytes and registered before parsing within the shared
+transaction. An unchanged path/hash or byte-identical file under another supported path is a file
+no-op and is not parsed again. The first registered relative path remains the evidence path for a
+content hash. New files retain every accepted track at its zero-based array ordinal; observed file
+ranges are the minimum and maximum accepted Spotify stop instants. A malformed supported file or
+any other import failure rolls back all file registrations, evidence, rejections, range updates, and
+successful counts from that command, leaving only its fixed safe failed-run audit row.
+
+Spotify record fingerprint version `spotify-source-v1` hashes the complete P1-02 allowlisted track
+projection: album, artist, and track display text; observed stop and derived start epoch
+milliseconds; played milliseconds; Spotify track URI; start/end reasons; shuffle; skipped; offline;
+and the source offline timestamp. The version, source kind, field names, scalar types, nulls, integer
+values, booleans, and exact Unicode strings are part of the canonical encoding. File path, ordinal,
+ingest time, unknown source keys, and excluded fields are not. Changing this set or any field meaning
+requires a new fingerprint version.
+
+Spotify fingerprints are deliberately indexed but not unique. The first occurrence of a fingerprint
+is accepted; every later occurrence is also inserted as separate source evidence and additionally
+counted as duplicated. Rows sharing the fingerprint form the exact-duplicate group. P1-06 will
+validate those groups; canonical-event interpretation remains Phase 2 work.
+
+Malformed records persist only their ordinal, source links, stable P1-02 reason code, and the fixed
+privacy-reviewed `Source record was rejected` summary. Raw rows, parser errors, and source values are
+never diagnostic data. Valid excluded records are not persisted as track evidence; the run stores
+their total, while command summaries also separate episode/audiobook from video/unsupported counts.
+Human and JSON summaries report reconciled file and record counts, the no-op state, duplicate count,
+non-music categories, and fingerprint version without returning file paths or source values.

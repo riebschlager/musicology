@@ -49,6 +49,21 @@ is up to date. Both commands fail with a data-error exit code if SQLite integrit
 validation fails. `db:status` also validates migration naming, ordering, continuity, and checksums
 without applying pending migrations.
 
+## Import Spotify historical evidence
+
+Apply all migrations first, then pass each supported Spotify audio export explicitly. The importer
+does not scan `data/inputs` or accept a directory in place of file paths:
+
+```sh
+pnpm db:migrate
+pnpm import:spotify data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
+pnpm import:spotify --json data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
+```
+
+Files remain read-only. Repeating the same content, including under another supported filename,
+adds no source evidence. A failed multi-file command rolls back every source write from that command.
+The summary is safe to retain, but source files and generated databases remain private and ignored.
+
 ## Test and validate changes
 
 Run the complete local and CI quality gate:
@@ -87,7 +102,8 @@ pnpm db:status
 
 Never aim a recursive removal at `data`, `data/inputs`, the repository root, or a path assembled from
 an unchecked environment variable. Rebuilding the database does not authorize changing or deleting
-private source exports. Later phases will add import and reconciliation commands after migration.
+private source exports. Historical import commands require the rebuilt database to be migrated before
+use. Reconciliation commands remain later-phase work.
 
 ## Privacy-safe troubleshooting
 

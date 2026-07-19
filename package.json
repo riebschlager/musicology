@@ -15,6 +15,7 @@
     "db:status": "node src/cli/db.ts status",
     "format": "biome format --write .",
     "format:check": "biome format .",
+    "import:spotify": "node src/cli/import-spotify.ts",
     "lint": "biome lint .",
     "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
     "test": "node --test",

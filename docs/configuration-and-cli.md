@@ -46,3 +46,25 @@ Exit-code categories are stable:
 A command may refine safe string error codes inside its structured result, but it must retain the
 numeric category. Secrets, usernames, excluded source fields, and raw rejected payloads must never
 be included in command results.
+
+## Spotify historical import
+
+After applying all migrations, import one or more explicitly named Spotify extended-history audio
+files:
+
+```sh
+pnpm import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
+pnpm import:spotify --json data/inputs/spotify/Streaming_History_Audio_2026_0.json
+```
+
+The command accepts files only inside `MUSICOLOGY_INPUTS_DIR` whose names match the supported Spotify
+audio-export convention. It never scans directories. Relative arguments are resolved from the
+current working directory; absolute paths are also accepted subject to the same input-root boundary.
+At least one path is required.
+
+The database must already be migrated and current. Human and JSON results include reconciled file,
+accepted, duplicated, excluded, rejected, and non-music category counts. An unchanged file or a
+byte-identical renamed file is reported as a no-op and adds no evidence. Import failures use safe
+codes and fixed summaries rather than paths, raw records, parser messages, or excluded field values.
+The complete persistence and fingerprint contract is documented in
+[`historical-ingestion-contracts.md`](historical-ingestion-contracts.md).
