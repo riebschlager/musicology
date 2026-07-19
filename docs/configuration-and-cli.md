@@ -46,3 +46,105 @@ Exit-code categories are stable:
 A command may refine safe string error codes inside its structured result, but it must retain the
 numeric category. Secrets, usernames, excluded source fields, and raw rejected payloads must never
 be included in command results.
+
+## Spotify historical import
+
+After applying all migrations, import one or more explicitly named Spotify extended-history audio
+files:
+
+```sh
+pnpm --silent import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
+pnpm --silent import:spotify --json data/inputs/spotify/Streaming_History_Audio_2026_0.json
+```
+
+The command accepts files only inside `MUSICOLOGY_INPUTS_DIR` whose names match the supported Spotify
+audio-export convention. It never scans directories. Relative arguments are resolved from the
+current working directory; absolute paths are also accepted subject to the same input-root boundary.
+At least one path is required.
+
+The database must already be migrated and current. Human and JSON results include reconciled file,
+accepted, duplicated, excluded, rejected, and non-music category counts. An unchanged file or a
+byte-identical renamed file is reported as a no-op and adds no evidence. Import failures use safe
+codes and fixed summaries rather than paths, raw records, parser messages, or excluded field values.
+The complete persistence and fingerprint contract is documented in
+[`historical-ingestion-contracts.md`](historical-ingestion-contracts.md).
+
+## Last.fm historical export import
+
+After applying all migrations, import one or more explicitly named JSON exports directly from the
+dedicated Last.fm input directory:
+
+```sh
+pnpm --silent import:lastfm-export data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export --json data/inputs/lastfm/history.json
+```
+
+The command accepts regular `.json` files only when they are direct children of
+`MUSICOLOGY_INPUTS_DIR/lastfm`; it never scans the directory. Relative arguments are resolved from
+the current working directory. At least one path is required. The database stores a versioned,
+hashed path locator rather than the arbitrary Last.fm filename because that filename may contain an
+account username; validation resolves the locator locally without returning the filename.
+The documented `pnpm --silent` form is also a privacy boundary: it suppresses pnpm's script preamble,
+which would otherwise echo the positional source path before the redacted CLI result is rendered.
+
+Human and JSON results include reconciled file, accepted, duplicated, and rejected counts plus the
+source and overlap fingerprint contract versions. Equivalent source fingerprints retain separate
+file/ordinal occurrence provenance while sharing one unique approved evidence payload. Unchanged or
+byte-identical renamed content is a no-op. Failures use fixed safe diagnostics and never emit paths,
+raw records, unknown fields, or source values.
+
+## Evidence validation
+
+Run evidence-layer validation after historical imports:
+
+```sh
+pnpm validate
+pnpm validate --json
+```
+
+The command is read-only and requires a fully migrated database. It uses one deferred read
+transaction so every database check observes a consistent committed snapshot. Validation opens only
+an existing database in SQLite read-only mode; a missing database fails without creating the database
+or its parent directories, and validation never changes journal mode. It verifies every registered
+file against the bytes at its configured evidence path, reconciles ingest-run totals with persisted
+evidence, validates file/record/run ownership, validates ordinal ranges and excluded-record gaps,
+recomputes approved record fingerprints, checks Last.fm occurrence links, validates fixed rejection
+codes and summaries, and validates status-compatible ingest-run error summaries before running
+SQLite integrity and foreign-key checks. Errors identify only safe database IDs, counts, and
+invariant names; they never return paths, display text, hashes, stored diagnostic text, or raw source
+records.
+
+The aggregate archive observations documented on 2026-07-17 are comparison baselines, not database
+constraints. Differences appear as `archive_baseline_deviation` findings and do not make an
+otherwise valid database fail. A changed or missing file at a registered path is an invariant error
+because the stored evidence can no longer be reproduced from that path.
+
+## Evidence coverage report
+
+Produce the versioned evidence-layer coverage report after historical imports:
+
+```sh
+pnpm report:coverage
+pnpm report:coverage --json
+```
+
+The command is read-only, requires a fully migrated existing database, and observes one deferred
+read snapshot. Human output is a concise source summary. JSON output is the deterministic
+`coverage-v1` automation contract: source-evidence occurrence counts by presentation-timezone year,
+UTC observed ranges, accepted/rejected/non-music totals, exact-fingerprint duplicate groups and
+extra occurrences, nullable approved-field rates, and same-source gaps of at least 365 exact
+24-hour days. It also declares generation time, timezone, input content hashes, report semantics,
+and that canonical-event counts are not included. Repeating the report over unchanged evidence
+changes only `generatedAt`.
+
+For the local private-archive review in P1-08, compare the aggregate report with the versioned
+observations in `PROJECT_APPROACH.md`:
+
+```sh
+pnpm report:coverage --compare-archive-baseline
+pnpm report:coverage --json --compare-archive-baseline
+```
+
+The comparison is opt-in, reports aggregate deviations without failing the command, and is not part
+of CI. Input paths and source display values are omitted; input hashes are included because they are
+the explicit evidence identity required by the report contract.

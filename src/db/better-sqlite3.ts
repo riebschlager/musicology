@@ -125,6 +125,14 @@ class BetterSqliteConnection implements SqliteConnection {
   }
 }
 
+function enableForeignKeys(database: Database.Database): void {
+  database.pragma("foreign_keys = ON");
+  const foreignKeysEnabled = database.pragma("foreign_keys", { simple: true });
+  if (foreignKeysEnabled !== 1) {
+    throw new Error("SQLite foreign-key enforcement could not be enabled");
+  }
+}
+
 /**
  * Opens a writable connection using the project connection policy.
  *
@@ -139,11 +147,7 @@ export function openSqliteConnection(databasePath: string): SqliteConnection {
 
   const database = new Database(resolvedPath, { timeout: SQLITE_BUSY_TIMEOUT_MS });
   try {
-    database.pragma("foreign_keys = ON");
-    const foreignKeysEnabled = database.pragma("foreign_keys", { simple: true });
-    if (foreignKeysEnabled !== 1) {
-      throw new Error("SQLite foreign-key enforcement could not be enabled");
-    }
+    enableForeignKeys(database);
 
     if (resolvedPath !== ":memory:") {
       const journalMode = database.pragma("journal_mode = WAL", { simple: true });
@@ -152,6 +156,23 @@ export function openSqliteConnection(databasePath: string): SqliteConnection {
       }
     }
 
+    return new BetterSqliteConnection(resolvedPath, database);
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+}
+
+/** Opens an existing file-backed database without creating files or changing journal mode. */
+export function openReadonlySqliteConnection(databasePath: string): SqliteConnection {
+  const resolvedPath = path.resolve(databasePath);
+  const database = new Database(resolvedPath, {
+    fileMustExist: true,
+    readonly: true,
+    timeout: SQLITE_BUSY_TIMEOUT_MS,
+  });
+  try {
+    enableForeignKeys(database);
     return new BetterSqliteConnection(resolvedPath, database);
   } catch (error) {
     database.close();

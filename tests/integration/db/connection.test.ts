@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { FILE_DATABASE_JOURNAL_MODE } from "../../../src/db/better-sqlite3.ts";
+import {
+  FILE_DATABASE_JOURNAL_MODE,
+  openReadonlySqliteConnection,
+} from "../../../src/db/better-sqlite3.ts";
 import type { SqliteRow } from "../../../src/db/connection.ts";
 import {
   createTemporarySqliteDatabase,
@@ -65,6 +68,32 @@ describe("SQLite connection policy", () => {
       assert.equal(row?.count, 0);
       assert.equal(connection.isInTransaction, false);
     });
+  });
+
+  it("opens an existing database read-only without changing its journal mode", () => {
+    const temporary = createTemporarySqliteDatabase();
+    temporary.connection.execute("CREATE TABLE item (id INTEGER PRIMARY KEY)");
+    temporary.connection.execute("PRAGMA journal_mode = DELETE");
+    temporary.connection.close();
+
+    const readonlyConnection = openReadonlySqliteConnection(temporary.databasePath);
+    try {
+      assert.equal(
+        readonlyConnection.prepare<PragmaValueRow>("PRAGMA foreign_keys").get()?.foreign_keys,
+        1,
+      );
+      assert.equal(
+        readonlyConnection.prepare<PragmaValueRow>("PRAGMA journal_mode").get()?.journal_mode,
+        "delete",
+      );
+      assert.throws(
+        () => readonlyConnection.prepare("INSERT INTO item DEFAULT VALUES").run(),
+        /readonly database/,
+      );
+    } finally {
+      readonlyConnection.close();
+      temporary.cleanup();
+    }
   });
 
   it("returns a successful database and foreign-key integrity check", () => {

@@ -48,4 +48,22 @@ describe("foundation developer workflow", () => {
     assert.match(documentation, /Rebuild the generated database/);
     assert.match(documentation, /Privacy-safe troubleshooting/);
   });
+
+  it("documents historical imports without pnpm echoing private source paths", () => {
+    for (const relativePath of [
+      "README.md",
+      "docs/configuration-and-cli.md",
+      "docs/developer-workflow.md",
+    ]) {
+      const documentation = readProjectFile(relativePath);
+      const importCommands = documentation
+        .split("\n")
+        .filter((line) => /^pnpm .*import:(?:spotify|lastfm-export)/u.test(line));
+      assert.ok(importCommands.length > 0, `missing historical import command in ${relativePath}`);
+      assert.ok(
+        importCommands.every((line) => line.startsWith("pnpm --silent import:")),
+        `historical import command can echo a private source path in ${relativePath}`,
+      );
+    }
+  });
 });

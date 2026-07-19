@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -50,6 +51,109 @@ function foreignKeys(connection: SqliteConnection, table: string): readonly stri
 }
 
 describe("initial schema contract", () => {
+  it("backfills occurrence provenance and preserves existing file relationships", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      for (const migration of [
+        "0001_create_initial_schema.sql",
+        "0002_add_ingest_lifecycle_counts.sql",
+      ]) {
+        connection.execute(readFileSync(`${migrationsDirectory}/${migration}`, "utf8"));
+      }
+      const run = connection
+        .prepare(
+          `INSERT INTO ingest_run
+            (command_type, started_at_epoch_ms, status, schema_version)
+           VALUES ('lastfm_export_import', 1, 'running', '2')`,
+        )
+        .run();
+      const sourceFile = connection
+        .prepare(
+          `INSERT INTO source_file
+            (relative_path, source_type, byte_size, content_sha256,
+             first_ingest_run_id, last_ingest_run_id)
+           VALUES ('lastfm/legacy.json', 'lastfm_export', 2,
+                   'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                   @runId, @runId)`,
+        )
+        .run({ runId: Number(run.lastInsertRowid) });
+      const sourceRecord = connection
+        .prepare(
+          `INSERT INTO source_record
+            (source_kind, ingest_run_id, source_file_id, source_ordinal, accepted_at_epoch_ms)
+           VALUES ('lastfm', @runId, @sourceFileId, 0, 1)`,
+        )
+        .run({
+          runId: Number(run.lastInsertRowid),
+          sourceFileId: Number(sourceFile.lastInsertRowid),
+        });
+      connection
+        .prepare(
+          `INSERT INTO lastfm_scrobble_source
+            (source_record_id, source_origin, scrobbled_at_epoch_ms, artist_name, track_name,
+             source_fingerprint_sha256)
+           VALUES (@sourceRecordId, 'export', 1, 'Synthetic Artist', 'Synthetic Track',
+                   'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')`,
+        )
+        .run({ sourceRecordId: Number(sourceRecord.lastInsertRowid) });
+      const rejectedRecord = connection
+        .prepare(
+          `INSERT INTO rejected_source_record
+            (ingest_run_id, source_file_id, source_ordinal, source_kind, error_code,
+             safe_diagnostic_summary, rejected_at_epoch_ms)
+           VALUES (@runId, @sourceFileId, 1, 'lastfm', 'invalid_timestamp', 'Safe summary', 1)`,
+        )
+        .run({
+          runId: Number(run.lastInsertRowid),
+          sourceFileId: Number(sourceFile.lastInsertRowid),
+        });
+
+      connection.transaction((transactionConnection) => {
+        for (const migration of [
+          "0003_add_lastfm_occurrence_provenance.sql",
+          "0004_scope_source_file_hash_by_type.sql",
+        ]) {
+          transactionConnection.execute(
+            readFileSync(`${migrationsDirectory}/${migration}`, "utf8"),
+          );
+        }
+      });
+
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT source_record_id, lastfm_scrobble_source_record_id, source_origin
+             FROM lastfm_scrobble_occurrence`,
+          )
+          .get(),
+        {
+          source_record_id: Number(sourceRecord.lastInsertRowid),
+          lastfm_scrobble_source_record_id: Number(sourceRecord.lastInsertRowid),
+          source_origin: "export",
+        },
+      );
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT source.source_file_id, source.source_ordinal,
+                    rejected.source_file_id AS rejected_source_file_id
+             FROM source_record AS source
+             JOIN rejected_source_record AS rejected ON rejected.id = @rejectedRecordId
+             WHERE source.id = @sourceRecordId`,
+          )
+          .get({
+            rejectedRecordId: Number(rejectedRecord.lastInsertRowid),
+            sourceRecordId: Number(sourceRecord.lastInsertRowid),
+          }),
+        {
+          source_file_id: Number(sourceFile.lastInsertRowid),
+          source_ordinal: 0,
+          rejected_source_file_id: Number(sourceFile.lastInsertRowid),
+        },
+      );
+      assert.equal(connection.checkIntegrity().ok, true);
+    });
+  });
+
   it("creates every planned data layer with the required columns", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       applyMigrations(connection, migrationsDirectory);
@@ -65,6 +169,7 @@ describe("initial schema contract", () => {
         "genre_tag",
         "identity_decision",
         "ingest_run",
+        "lastfm_scrobble_occurrence",
         "lastfm_scrobble_source",
         "listening_event",
         "listening_event_source",
@@ -111,6 +216,11 @@ describe("initial schema contract", () => {
         "loved",
         "source_fingerprint_sha256",
       ]);
+      assert.deepEqual(columns(connection, "lastfm_scrobble_occurrence"), [
+        "source_record_id",
+        "lastfm_scrobble_source_record_id",
+        "source_origin",
+      ]);
       assert.deepEqual(columns(connection, "listening_event"), [
         "id",
         "track_id",
@@ -132,6 +242,25 @@ describe("initial schema contract", () => {
         "safe_diagnostic_summary",
         "rejected_at_epoch_ms",
       ]);
+      assert.deepEqual(columns(connection, "ingest_run"), [
+        "id",
+        "command_type",
+        "started_at_epoch_ms",
+        "completed_at_epoch_ms",
+        "status",
+        "schema_version",
+        "rule_version",
+        "discovered_count",
+        "accepted_count",
+        "rejected_count",
+        "unsupported_count",
+        "safe_error_summary",
+        "discovered_file_count",
+        "registered_file_count",
+        "noop_file_count",
+        "duplicated_count",
+        "excluded_count",
+      ]);
     });
   });
 
@@ -148,6 +277,7 @@ describe("initial schema contract", () => {
         "spotify_play_source_fingerprint_idx",
         "spotify_play_source_track_time_idx",
         "lastfm_scrobble_source_artist_track_time_idx",
+        "lastfm_scrobble_occurrence_evidence_idx",
         "artist_alias_normalized_idx",
         "track_artist_title_idx",
         "listening_event_track_time_idx",
@@ -164,6 +294,10 @@ describe("initial schema contract", () => {
       applyMigrations(connection, migrationsDirectory);
 
       assert.deepEqual(foreignKeys(connection, "spotify_play_source"), [
+        "source_record_id->source_record",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "lastfm_scrobble_occurrence"), [
+        "lastfm_scrobble_source_record_id->lastfm_scrobble_source",
         "source_record_id->source_record",
       ]);
       assert.deepEqual(foreignKeys(connection, "listening_event_source"), [
@@ -214,6 +348,55 @@ describe("initial schema contract", () => {
     });
   });
 
+  it("enforces successful ingest-run count reconciliation", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+
+      const insertSucceededRun = connection.prepare(
+        `INSERT INTO ingest_run
+          (command_type, started_at_epoch_ms, completed_at_epoch_ms, status, schema_version,
+           discovered_count, accepted_count, rejected_count, unsupported_count,
+           discovered_file_count, registered_file_count, noop_file_count, duplicated_count,
+           excluded_count)
+         VALUES
+          ('spotify_import', 1, 2, 'succeeded', '2',
+           @discovered, @accepted, @rejected, @unsupported,
+           @discoveredFiles, @registeredFiles, @noopFiles, @duplicated, @excluded)`,
+      );
+      const validCounts = {
+        discovered: 3,
+        accepted: 2,
+        rejected: 1,
+        unsupported: 1,
+        discoveredFiles: 2,
+        registeredFiles: 1,
+        noopFiles: 0,
+        duplicated: 1,
+        excluded: 0,
+      } as const;
+
+      for (const invalidCounts of [
+        { ...validCounts, discovered: 4 },
+        { ...validCounts, duplicated: 3 },
+        { ...validCounts, discoveredFiles: 3 },
+      ]) {
+        assert.throws(
+          () => insertSucceededRun.run(invalidCounts),
+          /succeeded ingest_run counts do not reconcile/,
+        );
+      }
+
+      const inserted = insertSucceededRun.run(validCounts);
+      assert.throws(
+        () =>
+          connection
+            .prepare("UPDATE ingest_run SET accepted_count = 1 WHERE id = ?")
+            .run([Number(inserted.lastInsertRowid)]),
+        /succeeded ingest_run counts do not reconcile/,
+      );
+    });
+  });
+
   it("contains no excluded or raw-payload fields anywhere in the schema", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       applyMigrations(connection, migrationsDirectory);
@@ -244,7 +427,12 @@ describe("initial schema contract", () => {
       const first = applyMigrations(connection, migrationsDirectory);
       assert.deepEqual(
         first.appliedNow.map((migration) => migration.name),
-        ["create_initial_schema"],
+        [
+          "create_initial_schema",
+          "add_ingest_lifecycle_counts",
+          "add_lastfm_occurrence_provenance",
+          "scope_source_file_hash_by_type",
+        ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);
       assert.deepEqual(connection.checkIntegrity(), {

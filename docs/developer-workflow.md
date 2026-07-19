@@ -49,6 +49,79 @@ is up to date. Both commands fail with a data-error exit code if SQLite integrit
 validation fails. `db:status` also validates migration naming, ordering, continuity, and checksums
 without applying pending migrations.
 
+## Import Spotify historical evidence
+
+Apply all migrations first, then pass each supported Spotify audio export explicitly. The importer
+does not scan `data/inputs` or accept a directory in place of file paths:
+
+```sh
+pnpm db:migrate
+pnpm --silent import:spotify data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
+pnpm --silent import:spotify --json data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
+```
+
+Files remain read-only. Repeating the same content, including under another supported filename,
+adds no source evidence. A failed multi-file command rolls back every source write from that command.
+The summary is safe to retain, but source files and generated databases remain private and ignored.
+
+## Import Last.fm historical export evidence
+
+Apply all migrations first, then explicitly name each supported JSON export directly inside the
+dedicated Last.fm input directory. The importer does not scan the directory:
+
+```sh
+pnpm db:migrate
+pnpm --silent import:lastfm-export data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export --json data/inputs/lastfm/history.json
+```
+
+Files remain read-only. Repeating unchanged or byte-identical renamed content adds no occurrence or
+payload evidence. Equivalent scrobble fingerprints retain separate ordinal provenance and are
+reported as duplicates. A failed multi-file command rolls back all source writes from that command.
+Summaries contain only aggregate counts and contract versions; exports and generated databases
+remain private and ignored. Keep `--silent` before the script name: pnpm's normal script preamble
+echoes positional arguments, and a Last.fm export filename can itself contain an account identifier.
+
+## Validate historical evidence
+
+After importing either source, validate the source bytes and evidence layer without modifying the
+inputs or database:
+
+```sh
+pnpm validate
+pnpm validate --json
+```
+
+Validation fails with a data-error exit code for changed or missing registered files, inconsistent
+ingest totals, incompatible file/record/run ownership, inconsistent ordinals, incorrect fingerprints
+or Last.fm occurrence links, unsafe rejection metadata, unsafe ingest-run error summaries,
+foreign-key violations, or SQLite integrity failures. The documented archive counts are reported
+only as non-fatal baseline findings, so a legitimate replacement export can be investigated without
+redefining an evidence invariant. Diagnostics contain safe IDs and aggregate counts only.
+Arbitrary Last.fm filenames are represented in SQLite by opaque path locators; validation resolves
+them against direct JSON children of the private Last.fm input directory without reporting or
+persisting a filename that may contain an account username.
+
+## Report historical evidence coverage
+
+Generate the first coverage report from the same migrated database:
+
+```sh
+pnpm report:coverage
+pnpm report:coverage --json
+```
+
+The human form is concise; JSON is the stable automation form and includes input hashes without
+including input paths or source record values. Year grouping uses `MUSICOLOGY_TIMEZONE`, which
+defaults to `America/Chicago`. The report counts source evidence occurrences and explicitly does not
+claim to count future reconciled canonical events.
+
+The documented private-archive baseline comparison is a local P1-08 workflow, not a CI check:
+
+```sh
+pnpm report:coverage --compare-archive-baseline
+```
+
 ## Test and validate changes
 
 Run the complete local and CI quality gate:
@@ -72,7 +145,8 @@ pnpm build
 ```
 
 Before handing off a database-related change, run `pnpm quality`, migrate a fresh temporary database,
-and run `db:status` against that same database. This mirrors `.github/workflows/ci.yml`.
+run `db:status`, and run `validate` against that same database. This mirrors the database checks used
+for evidence-layer work while keeping private inputs outside CI.
 
 ## Rebuild the generated database
 
@@ -87,7 +161,8 @@ pnpm db:status
 
 Never aim a recursive removal at `data`, `data/inputs`, the repository root, or a path assembled from
 an unchecked environment variable. Rebuilding the database does not authorize changing or deleting
-private source exports. Later phases will add import and reconciliation commands after migration.
+private source exports. Historical import commands require the rebuilt database to be migrated before
+use. Reconciliation commands remain later-phase work.
 
 ## Privacy-safe troubleshooting
 
