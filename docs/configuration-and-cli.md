@@ -53,8 +53,8 @@ After applying all migrations, import one or more explicitly named Spotify exten
 files:
 
 ```sh
-pnpm import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
-pnpm import:spotify --json data/inputs/spotify/Streaming_History_Audio_2026_0.json
+pnpm --silent import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
+pnpm --silent import:spotify --json data/inputs/spotify/Streaming_History_Audio_2026_0.json
 ```
 
 The command accepts files only inside `MUSICOLOGY_INPUTS_DIR` whose names match the supported Spotify
@@ -75,8 +75,8 @@ After applying all migrations, import one or more explicitly named JSON exports 
 dedicated Last.fm input directory:
 
 ```sh
-pnpm import:lastfm-export data/inputs/lastfm/history.json
-pnpm import:lastfm-export --json data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export --json data/inputs/lastfm/history.json
 ```
 
 The command accepts regular `.json` files only when they are direct children of
@@ -84,6 +84,8 @@ The command accepts regular `.json` files only when they are direct children of
 the current working directory. At least one path is required. The database stores a versioned,
 hashed path locator rather than the arbitrary Last.fm filename because that filename may contain an
 account username; validation resolves the locator locally without returning the filename.
+The documented `pnpm --silent` form is also a privacy boundary: it suppresses pnpm's script preamble,
+which would otherwise echo the positional source path before the redacted CLI result is rendered.
 
 Human and JSON results include reconciled file, accepted, duplicated, and rejected counts plus the
 source and overlap fingerprint contract versions. Equivalent source fingerprints retain separate

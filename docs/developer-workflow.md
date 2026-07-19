@@ -56,8 +56,8 @@ does not scan `data/inputs` or accept a directory in place of file paths:
 
 ```sh
 pnpm db:migrate
-pnpm import:spotify data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
-pnpm import:spotify --json data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
+pnpm --silent import:spotify data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
+pnpm --silent import:spotify --json data/inputs/spotify/Streaming_History_Audio_2011-2013_0.json
 ```
 
 Files remain read-only. Repeating the same content, including under another supported filename,
@@ -71,15 +71,16 @@ dedicated Last.fm input directory. The importer does not scan the directory:
 
 ```sh
 pnpm db:migrate
-pnpm import:lastfm-export data/inputs/lastfm/history.json
-pnpm import:lastfm-export --json data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export --json data/inputs/lastfm/history.json
 ```
 
 Files remain read-only. Repeating unchanged or byte-identical renamed content adds no occurrence or
 payload evidence. Equivalent scrobble fingerprints retain separate ordinal provenance and are
 reported as duplicates. A failed multi-file command rolls back all source writes from that command.
 Summaries contain only aggregate counts and contract versions; exports and generated databases
-remain private and ignored.
+remain private and ignored. Keep `--silent` before the script name: pnpm's normal script preamble
+echoes positional arguments, and a Last.fm export filename can itself contain an account identifier.
 
 ## Validate historical evidence
 

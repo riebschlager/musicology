@@ -11,6 +11,7 @@ import type {
   TransactionMode,
 } from "../../../src/db/connection.ts";
 import { IngestIssueCode, IngestIssueSummary } from "../../../src/importers/contracts.ts";
+import { fingerprintLastfmScrobble } from "../../../src/importers/lastfm-export/boundary.ts";
 import { importLastfmExportFiles } from "../../../src/importers/lastfm-export/persistence.ts";
 import { importSpotifyFiles } from "../../../src/importers/spotify/persistence.ts";
 import { validateEvidenceLayer } from "../../../src/validation/evidence.ts";
@@ -406,6 +407,52 @@ describe("evidence-layer validation", () => {
     withTemporaryTestWorkspace((workspace) => {
       importValidSyntheticEvidence(workspace);
       workspace.connection.prepare("DELETE FROM lastfm_scrobble_occurrence").run();
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.ok(validation.errors.some((error) => error.code === "lastfm_occurrence_invalid"));
+    });
+
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const spotifySourceRecordId = workspace.connection
+        .prepare<{ readonly source_record_id: number }>(
+          "SELECT source_record_id FROM spotify_play_source",
+        )
+        .get()?.source_record_id;
+      assert.notEqual(spotifySourceRecordId, undefined);
+      const misplaced = {
+        albumName: null,
+        artistMusicbrainzId: null,
+        artistName: "Synthetic Validation Artist",
+        loved: null,
+        recordingMusicbrainzId: null,
+        releaseMusicbrainzId: null,
+        scrobbledAtEpochMs: 1_800_000_002_000,
+        trackName: "Misplaced Evidence",
+      } as const;
+      workspace.connection
+        .prepare(
+          `INSERT INTO lastfm_scrobble_source
+            (source_record_id, source_origin, scrobbled_at_epoch_ms, artist_name, album_name,
+             track_name, artist_musicbrainz_id, release_musicbrainz_id,
+             recording_musicbrainz_id, loved, source_fingerprint_sha256)
+           VALUES (?, 'export', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run([
+          spotifySourceRecordId ?? 0,
+          misplaced.scrobbledAtEpochMs,
+          misplaced.artistName,
+          misplaced.albumName,
+          misplaced.trackName,
+          misplaced.artistMusicbrainzId,
+          misplaced.releaseMusicbrainzId,
+          misplaced.recordingMusicbrainzId,
+          misplaced.loved,
+          fingerprintLastfmScrobble(misplaced),
+        ]);
 
       const validation = validateEvidenceLayer(
         workspace.connection,

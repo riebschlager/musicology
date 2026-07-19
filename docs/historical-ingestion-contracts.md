@@ -230,7 +230,8 @@ Malformed records persist only their ordinal, source links, stable P1-04 reason 
 privacy-reviewed `Source record was rejected` summary. Raw rows, parser errors, unknown fields, and
 source values are never diagnostic data. Human and JSON summaries report reconciled file, accepted,
 duplicated, and rejected counts plus both fingerprint contract versions without returning paths or
-source values.
+source values. Documented package-script invocations use `pnpm --silent` so pnpm does not echo
+positional source paths before these privacy-reviewed summaries.
 
 ## Evidence-layer validation (P1-06)
 

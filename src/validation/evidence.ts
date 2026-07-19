@@ -562,9 +562,10 @@ function validateFingerprints(
     }
   }
 
-  const badOccurrenceCount = count(
-    connection,
-    `SELECT count(*) AS count
+  const badOccurrenceCount =
+    count(
+      connection,
+      `SELECT count(*) AS count
      FROM source_record AS source
      LEFT JOIN lastfm_scrobble_occurrence AS occurrence ON occurrence.source_record_id = source.id
      LEFT JOIN lastfm_scrobble_source AS evidence
@@ -572,7 +573,23 @@ function validateFingerprints(
      WHERE source.source_kind = 'lastfm'
        AND (occurrence.source_record_id IS NULL OR evidence.source_record_id IS NULL
             OR occurrence.source_origin <> evidence.source_origin)`,
-  );
+    ) +
+    count(
+      connection,
+      `SELECT count(*) AS count
+       FROM lastfm_scrobble_source AS evidence
+       JOIN source_record AS parent ON parent.id = evidence.source_record_id
+       LEFT JOIN lastfm_scrobble_occurrence AS occurrence
+         ON occurrence.lastfm_scrobble_source_record_id = evidence.source_record_id
+       WHERE parent.source_kind <> 'lastfm' OR occurrence.source_record_id IS NULL`,
+    ) +
+    count(
+      connection,
+      `SELECT count(*) AS count
+       FROM lastfm_scrobble_occurrence AS occurrence
+       JOIN source_record AS source ON source.id = occurrence.source_record_id
+       WHERE source.source_kind <> 'lastfm'`,
+    );
   if (badOccurrenceCount > 0) {
     addError(
       errors,

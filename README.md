@@ -25,14 +25,14 @@ These are the same project entry points used by CI. No Last.fm credentials or pr
 To import a private Spotify archive after setup, explicitly name each supported audio export:
 
 ```sh
-pnpm import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
+pnpm --silent import:spotify data/inputs/spotify/Streaming_History_Audio_2026_0.json
 ```
 
 To import a private Last.fm history export, explicitly name each supported JSON file directly inside
 the dedicated Last.fm input directory:
 
 ```sh
-pnpm import:lastfm-export data/inputs/lastfm/history.json
+pnpm --silent import:lastfm-export data/inputs/lastfm/history.json
 ```
 
 After imports, `pnpm validate` verifies source hashes, evidence invariants, ingest totals,
