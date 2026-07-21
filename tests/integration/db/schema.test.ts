@@ -276,6 +276,27 @@ describe("initial schema contract", () => {
         "duplicated_count",
         "excluded_count",
       ]);
+      assert.deepEqual(columns(connection, "reconciliation_candidate"), [
+        "id",
+        "spotify_source_record_id",
+        "lastfm_source_record_id",
+        "identifier_agreement",
+        "artist_score",
+        "track_score",
+        "album_score",
+        "start_delta_ms",
+        "duration_score",
+        "ordering_score",
+        "ambiguity_score",
+        "total_confidence",
+        "rule_version",
+        "candidate_state",
+        "resolved_at_epoch_ms",
+        "resolution_rationale",
+        "supersedes_candidate_id",
+        "short_play_score",
+        "competing_candidate_score",
+      ]);
     });
   });
 
@@ -451,6 +472,7 @@ describe("initial schema contract", () => {
           "scope_source_file_hash_by_type",
           "add_identity_resolution",
           "add_cross_source_candidate_generation",
+          "add_reconciliation_match_features",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

@@ -12,7 +12,10 @@ they never authorize an automatic merge.
 `migrations/0006_add_cross_source_candidate_generation.sql` adds the unscored, bounded P2-05
 candidate-generation layer and expression indexes for one-minute Spotify derived-start and Last.fm
 scrobble-time blocks. It deliberately remains separate from `reconciliation_candidate`, whose
-required feature and score fields are P2-06 work.
+P2-06 feature and score fields are populated by the versioned feature pass.
+`migrations/0007_add_reconciliation_match_features.sql` adds nullable short-play and
+competing-candidate clarity fields. NULL preserves the fact that any pre-feature candidate row has
+no reconstructable value rather than fabricating a default.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately

@@ -37,3 +37,26 @@ and share either a resolved track identity or normalized artist-and-track aliase
 time blocks bound the join before the exact window check. Each stored pair records whether entry was
 through `shared_track_identity` or `matching_normalized_artist_track`, along with the generation rule
 version. Generation is idempotent and does not itself merge events or calculate match scores.
+
+P2-06 defines `cross-source-match-feature-v1`. Its deterministic feature pass consumes only those
+generated pairs and creates pending `reconciliation_candidate` rows; it never changes events,
+evidence links, or candidate decisions. Each row stores the signed Last.fm-minus-Spotify-derived
+start delta, identity/text/album agreement, duration plausibility, neighbor ordering, ambiguity,
+competitor clarity, and short-play signal separately from `total_confidence`. Higher agreement,
+duration plausibility, ordering, competitor clarity, and short-play values favor a match; lower
+absolute time deltas favor a match. `ambiguity_score` is the inverse: 0 means no competing pair and
+higher values mean more ambiguity. Missing Last.fm recording identifiers and missing albums are
+stored as NULL and are omitted from the aggregate denominator, never interpreted as disagreement.
+Neighbor ordering is likewise NULL when either source timestamp is tied, because no chronology can
+be inferred from equal instants.
+An unchanged rerun is a no-op. If later candidate generation adds a competing or nearer pair, the
+pass refreshes the contextual features of still-pending rows under the same feature-rule version;
+resolved rows remain auditable snapshots for the decision layer.
+
+The aggregate is a deterministic, normalized weighted mean of available feature values: identifier
+agreement (25%), artist (15%), track (20%), album (10%), time closeness (15%), duration plausibility
+(5%), neighbor order (5%), competitor clarity (5%), and short-play signal (5%). Its direction is
+higher-is-more-compatible, but it is not a merge policy: P2-07 calibrates thresholds and hard
+conflict rules before P2-08 can act on it. A Spotify play shorter than 30 seconds, or marked
+skipped, has a short-play score of 0; otherwise it has 1. Duration plausibility decreases linearly
+as timestamp distance approaches the larger of 30 seconds or the observed Spotify play duration.
