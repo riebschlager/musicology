@@ -28,3 +28,12 @@ that already share one fingerprint-unique `lastfm_scrobble_source` payload follo
 so a future API occurrence can reuse the export event without creating another canonical listen.
 No source record or source-specific evidence row is deleted. Same-time Spotify records with
 different approved fields have different fingerprints and remain separate events.
+
+P2-05 defines `cross-source-candidate-v1`. It stores unscored Spotify/Last.fm source pairs in
+`cross_source_candidate_generation`, separately from the scored `reconciliation_candidate` layer
+introduced by P2-06. A pair must use a primary, non-superseded source interpretation, match within
+a configurable 0–120-second window (30 seconds by default) measured from Spotify's derived start,
+and share either a resolved track identity or normalized artist-and-track aliases. Indexed one-minute
+time blocks bound the join before the exact window check. Each stored pair records whether entry was
+through `shared_track_identity` or `matching_normalized_artist_track`, along with the generation rule
+version. Generation is idempotent and does not itself merge events or calculate match scores.

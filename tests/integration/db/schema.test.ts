@@ -165,6 +165,7 @@ describe("initial schema contract", () => {
         "artist",
         "artist_alias",
         "artist_genre_evidence",
+        "cross_source_candidate_generation",
         "genre_mapping",
         "genre_tag",
         "identity_decision",
@@ -290,7 +291,9 @@ describe("initial schema contract", () => {
         "source_record_source_file_idx",
         "spotify_play_source_fingerprint_idx",
         "spotify_play_source_track_time_idx",
+        "spotify_play_source_derived_start_block_idx",
         "lastfm_scrobble_source_artist_track_time_idx",
+        "lastfm_scrobble_source_time_block_idx",
         "lastfm_scrobble_occurrence_evidence_idx",
         "artist_alias_normalized_idx",
         "track_artist_title_idx",
@@ -447,6 +450,7 @@ describe("initial schema contract", () => {
           "add_lastfm_occurrence_provenance",
           "scope_source_file_hash_by_type",
           "add_identity_resolution",
+          "add_cross_source_candidate_generation",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

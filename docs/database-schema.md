@@ -9,6 +9,10 @@ source type so byte-identical files from different source formats retain indepen
 one current identity interpretation per source occurrence, including both resolution-rule and
 normalization versions. Strong-identifier/composite disagreements are retained as conflict rows;
 they never authorize an automatic merge.
+`migrations/0006_add_cross_source_candidate_generation.sql` adds the unscored, bounded P2-05
+candidate-generation layer and expression indexes for one-minute Spotify derived-start and Last.fm
+scrobble-time blocks. It deliberately remains separate from `reconciliation_candidate`, whose
+required feature and score fields are P2-06 work.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately
