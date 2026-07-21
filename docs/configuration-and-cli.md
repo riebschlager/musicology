@@ -143,11 +143,12 @@ pnpm report:coverage --json
 
 The command is read-only, requires a fully migrated existing database, and observes one deferred
 read snapshot. Human output is a concise source summary. JSON output is the deterministic
-`coverage-v1` automation contract: source-evidence occurrence counts by presentation-timezone year,
+`coverage-v2` automation contract: source-evidence occurrence counts by presentation-timezone year,
 UTC observed ranges, accepted/rejected/non-music totals, exact-fingerprint duplicate groups and
 extra occurrences, nullable approved-field rates, and same-source gaps of at least 365 exact
-24-hour days. It also declares generation time, timezone, input content hashes, report semantics,
-and that canonical-event counts are not included. Repeating the report over unchanged evidence
+24-hour days. It also declares current and unresolved canonical-event counts, source backing
+(Spotify, Last.fm, or both), exact and inferred merge counts, unresolved rates, overlap by year,
+generation time, timezone, input content hashes, and report semantics. Repeating the report over unchanged evidence
 changes only `generatedAt`.
 
 For the local private-archive review in P1-08, compare the aggregate report with the versioned

@@ -128,6 +128,36 @@ describe("identity resolution", () => {
     });
   });
 
+  it("retains punctuation-only display text as an explicit unresolved identity", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      sourceRecord(connection, 1, "!!!", "???", null, null);
+
+      assert.deepEqual(resolveSourceIdentities(connection, { now: () => 5 }), {
+        processed: 1,
+        resolved: 1,
+        conflicts: 0,
+      });
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT artist.preferred_name AS artist, track.preferred_title AS track,
+                    resolution.resolution_kind AS kind
+               FROM source_identity_resolution AS resolution
+               JOIN artist ON artist.id = resolution.artist_id
+               JOIN track ON track.id = resolution.track_id`,
+          )
+          .all(),
+        [{ artist: "!!!", track: "???", kind: "new_unresolved" }],
+      );
+      assert.equal(
+        connection.prepare("SELECT count(*) AS count FROM artist_alias").get()?.count,
+        0,
+      );
+      assert.equal(connection.prepare("SELECT count(*) AS count FROM track_alias").get()?.count, 0);
+    });
+  });
+
   it("uses an unambiguous manual alias before a conflicting source alias", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       applyMigrations(connection, migrationsDirectory);

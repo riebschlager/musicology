@@ -151,7 +151,8 @@ function collapseDuplicateGroups(
             WHERE id = ?
               AND event_status <> 'superseded'
               AND NOT EXISTS (
-                SELECT 1 FROM listening_event_source WHERE listening_event_id = ?
+                SELECT 1 FROM listening_event_source AS existing_link
+                 WHERE existing_link.listening_event_id = ?
               )`,
         )
         .run([keeper.listening_event_id, link.listening_event_id, link.listening_event_id]);

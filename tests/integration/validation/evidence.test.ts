@@ -14,6 +14,8 @@ import { IngestIssueCode, IngestIssueSummary } from "../../../src/importers/cont
 import { fingerprintLastfmScrobble } from "../../../src/importers/lastfm-export/boundary.ts";
 import { importLastfmExportFiles } from "../../../src/importers/lastfm-export/persistence.ts";
 import { importSpotifyFiles } from "../../../src/importers/spotify/persistence.ts";
+import { createCanonicalEvents } from "../../../src/identity/events.ts";
+import { resolveSourceIdentities } from "../../../src/identity/resolution.ts";
 import { validateEvidenceLayer } from "../../../src/validation/evidence.ts";
 import {
   buildLastfmScrobbleFixture,
@@ -56,6 +58,8 @@ function importValidSyntheticEvidence(workspace: TemporaryTestWorkspace): {
     now: () => 1_800_000_001_000,
     schemaVersion: "4",
   });
+  resolveSourceIdentities(workspace.connection, { now: () => 1_800_000_001_500 });
+  createCanonicalEvents(workspace.connection);
   return { lastfmPath, spotifyPath };
 }
 
@@ -77,6 +81,8 @@ describe("evidence-layer validation", () => {
         sourceRecords: 2,
         rejectedRecords: 2,
         fingerprints: 2,
+        canonicalEvents: 2,
+        reconciliationCandidates: 0,
       });
       assert.ok(validation.findings.length > 0);
       assert.ok(
@@ -538,6 +544,327 @@ describe("evidence-layer validation", () => {
       assert.ok(
         validation.errors.some((error) => error.code === "ingest_run_persistence_mismatch"),
       );
+    });
+  });
+
+  it("detects missing canonical provenance without exposing source content", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      workspace.connection
+        .prepare(
+          "DELETE FROM listening_event_source WHERE source_record_id = (SELECT min(id) FROM source_record)",
+        )
+        .run();
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some((error) => error.code === "canonical_interpretation_missing"),
+      );
+      assert.ok(validation.errors.some((error) => error.code === "canonical_event_without_source"));
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects a strong identifier resolved to a different track", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const artistId = Number(
+        workspace.connection
+          .prepare(
+            "INSERT INTO music_entity (entity_type, created_at_epoch_ms) VALUES ('artist', 1)",
+          )
+          .run().lastInsertRowid,
+      );
+      workspace.connection
+        .prepare("INSERT INTO artist (id, preferred_name) VALUES (?, 'Other Artist')")
+        .run([artistId]);
+      const trackId = Number(
+        workspace.connection
+          .prepare(
+            "INSERT INTO music_entity (entity_type, created_at_epoch_ms) VALUES ('track', 1)",
+          )
+          .run().lastInsertRowid,
+      );
+      workspace.connection
+        .prepare("INSERT INTO track (id, artist_id, preferred_title) VALUES (?, ?, 'Other Track')")
+        .run([trackId, artistId]);
+      workspace.connection
+        .prepare(
+          `UPDATE source_identity_resolution
+              SET artist_id = ?, release_id = NULL, track_id = ?
+            WHERE source_record_id = (SELECT min(id) FROM source_record)`,
+        )
+        .run([artistId, trackId]);
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some(
+          (error) => error.code === "identity_strong_identifier_conflict_unresolved",
+        ),
+      );
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects manual reconciliation decisions that do not match canonical lineage", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const spotifySourceRecordId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          "SELECT id FROM source_record WHERE source_kind = 'spotify'",
+        )
+        .get()?.id;
+      const lastfmSourceRecordId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          "SELECT id FROM source_record WHERE source_kind = 'lastfm'",
+        )
+        .get()?.id;
+      const spotifyEventId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          `SELECT link.listening_event_id AS id
+             FROM listening_event_source AS link
+             JOIN source_record AS source ON source.id = link.source_record_id
+            WHERE source.source_kind = 'spotify'`,
+        )
+        .get()?.id;
+      const lastfmEventId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          `SELECT link.listening_event_id AS id
+             FROM listening_event_source AS link
+             JOIN source_record AS source ON source.id = link.source_record_id
+            WHERE source.source_kind = 'lastfm'`,
+        )
+        .get()?.id;
+      assert.notEqual(spotifySourceRecordId, undefined);
+      assert.notEqual(lastfmSourceRecordId, undefined);
+      assert.notEqual(spotifyEventId, undefined);
+      assert.notEqual(lastfmEventId, undefined);
+
+      const candidateId = Number(
+        workspace.connection
+          .prepare(
+            `INSERT INTO reconciliation_candidate
+              (spotify_source_record_id, lastfm_source_record_id, artist_score, track_score,
+               start_delta_ms, ambiguity_score, total_confidence, rule_version, candidate_state,
+               resolved_at_epoch_ms, resolution_rationale)
+             VALUES (?, ?, 1, 1, 0, 1, 1, 'fixture-v1', 'manually_accepted', 1, 'fixture')`,
+          )
+          .run([spotifySourceRecordId ?? 0, lastfmSourceRecordId ?? 0]).lastInsertRowid,
+      );
+      workspace.connection
+        .prepare(
+          `INSERT INTO manual_decision_artifact
+            (decision_key, artifact_version, decision_type, payload_json, imported_at_epoch_ms)
+           VALUES ('fixture-manual-accept', 'manual-decisions-v1', 'accept', '{}', 1)`,
+        )
+        .run();
+      workspace.connection
+        .prepare(
+          `INSERT INTO manual_reconciliation_decision
+            (decision_key, reconciliation_candidate_id, decision, source_listening_event_id,
+             target_listening_event_id, source_event_status)
+           VALUES ('fixture-manual-accept', ?, 'accept', ?, ?, 'current')`,
+        )
+        .run([candidateId, lastfmEventId ?? 0, spotifyEventId ?? 0]);
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some(
+          (error) => error.code === "manual_reconciliation_decision_lineage_invalid",
+        ),
+      );
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects invalid identity-decision supersession", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const artistId = workspace.connection
+        .prepare<{ readonly artist_id: number }>(
+          "SELECT artist_id FROM source_identity_resolution ORDER BY source_record_id LIMIT 1",
+        )
+        .get()?.artist_id;
+      assert.notEqual(artistId, undefined);
+      const otherArtistId = Number(
+        workspace.connection
+          .prepare(
+            "INSERT INTO music_entity (entity_type, created_at_epoch_ms) VALUES ('artist', 1)",
+          )
+          .run().lastInsertRowid,
+      );
+      workspace.connection
+        .prepare("INSERT INTO artist (id, preferred_name) VALUES (?, 'Other Artist')")
+        .run([otherArtistId]);
+      const mergeId = Number(
+        workspace.connection
+          .prepare(
+            `INSERT INTO identity_decision
+              (decision_type, subject_entity_id, object_entity_id, decided_at_epoch_ms,
+               decision_version, rationale)
+             VALUES ('merge', ?, ?, 1, 'fixture-v1', 'fixture')`,
+          )
+          .run([artistId ?? 0, otherArtistId]).lastInsertRowid,
+      );
+      workspace.connection
+        .prepare(
+          `INSERT INTO identity_decision
+            (decision_type, subject_entity_id, alias_text, decided_at_epoch_ms, decision_version,
+             rationale, supersedes_decision_id)
+           VALUES ('alias', ?, 'Other Alias', 2, 'fixture-v1', 'fixture', ?)`,
+        )
+        .run([artistId ?? 0, mergeId]);
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some((error) => error.code === "identity_decision_lineage_invalid"),
+      );
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects an unresolved canonical event for a resolved source identity", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      workspace.connection
+        .prepare(
+          `UPDATE listening_event
+              SET event_status = 'unresolved'
+            WHERE id = (SELECT min(listening_event_id) FROM listening_event_source)`,
+        )
+        .run();
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some((error) => error.code === "canonical_unresolved_state_invalid"),
+      );
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects an identity entity whose subtype does not match", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      workspace.connection
+        .prepare(
+          `UPDATE music_entity
+              SET entity_type = 'artist'
+            WHERE id = (SELECT track_id FROM source_identity_resolution LIMIT 1)`,
+        )
+        .run();
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(validation.errors.some((error) => error.code === "identity_graph_entity_invalid"));
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects an automatic acceptance without its canonical merge", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const spotifySourceRecordId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          "SELECT id FROM source_record WHERE source_kind = 'spotify'",
+        )
+        .get()?.id;
+      const lastfmSourceRecordId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          "SELECT id FROM source_record WHERE source_kind = 'lastfm'",
+        )
+        .get()?.id;
+      const spotifyEventId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          `SELECT link.listening_event_id AS id
+             FROM listening_event_source AS link
+             JOIN source_record AS source ON source.id = link.source_record_id
+            WHERE source.source_kind = 'spotify'`,
+        )
+        .get()?.id;
+      const lastfmEventId = workspace.connection
+        .prepare<{ readonly id: number }>(
+          `SELECT link.listening_event_id AS id
+             FROM listening_event_source AS link
+             JOIN source_record AS source ON source.id = link.source_record_id
+            WHERE source.source_kind = 'lastfm'`,
+        )
+        .get()?.id;
+      assert.notEqual(spotifySourceRecordId, undefined);
+      assert.notEqual(lastfmSourceRecordId, undefined);
+      assert.notEqual(spotifyEventId, undefined);
+      assert.notEqual(lastfmEventId, undefined);
+      const candidateId = Number(
+        workspace.connection
+          .prepare(
+            `INSERT INTO reconciliation_candidate
+              (spotify_source_record_id, lastfm_source_record_id, artist_score, track_score,
+               start_delta_ms, ambiguity_score, total_confidence, rule_version, candidate_state,
+               resolved_at_epoch_ms, resolution_rationale)
+             VALUES (?, ?, 1, 1, 0, 1, 1, 'fixture-v1', 'auto_accepted', 1, 'fixture')`,
+          )
+          .run([spotifySourceRecordId ?? 0, lastfmSourceRecordId ?? 0]).lastInsertRowid,
+      );
+      workspace.connection
+        .prepare(
+          `INSERT INTO reconciliation_decision
+            (reconciliation_candidate_id, policy_rule_version, decision, applied_at_epoch_ms,
+             decision_state, source_listening_event_id, target_listening_event_id,
+             source_event_status, rationale)
+           VALUES (?, 'fixture-policy-v1', 'auto_accept', 1, 'active', ?, ?, 'current', 'fixture')`,
+        )
+        .run([candidateId, lastfmEventId ?? 0, spotifyEventId ?? 0]);
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some((error) => error.code === "reconciliation_decision_lineage_invalid"),
+      );
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
+    });
+  });
+
+  it("detects empty reconciliation rule versions", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      workspace.connection
+        .prepare("UPDATE listening_event SET reconciliation_rule_version = ' '")
+        .run();
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, false);
+      assert.ok(
+        validation.errors.some((error) => error.code === "reconciliation_rule_version_invalid"),
+      );
+      assert.equal(JSON.stringify(validation).includes(PRIVATE_SENTINEL), false);
     });
   });
 

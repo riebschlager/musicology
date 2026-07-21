@@ -165,32 +165,34 @@ export function resolveSourceIdentities(
       const artistNorm = normalizeMatchText(row.artist_name);
       const trackNorm = normalizeMatchText(row.track_name);
       const albumNorm = row.album_name === null ? null : normalizeMatchText(row.album_name);
-      if (artistNorm === null || trackNorm === null) {
-        throw new Error("Accepted source evidence has an empty identity display value");
-      }
+      const canUseNormalizedIdentity = artistNorm !== null && trackNorm !== null;
       const strongArtist = followActiveManualMerges(
         connection,
         "artist",
         findIdentifier(connection, "musicbrainz_artist_id", row.artist_musicbrainz_id),
       );
-      const manualAliasArtist = followActiveManualMerges(
-        connection,
-        "artist",
-        uniqueId(
-          connection,
-          "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'manual'",
-          [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
-        ),
-      );
-      const sourceAliasArtist = followActiveManualMerges(
-        connection,
-        "artist",
-        uniqueId(
-          connection,
-          "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'source'",
-          [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
-        ),
-      );
+      const manualAliasArtist = canUseNormalizedIdentity
+        ? followActiveManualMerges(
+            connection,
+            "artist",
+            uniqueId(
+              connection,
+              "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'manual'",
+              [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
+            ),
+          )
+        : undefined;
+      const sourceAliasArtist = canUseNormalizedIdentity
+        ? followActiveManualMerges(
+            connection,
+            "artist",
+            uniqueId(
+              connection,
+              "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'source'",
+              [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
+            ),
+          )
+        : undefined;
       const aliasArtist = manualAliasArtist ?? sourceAliasArtist;
       let artistId = strongArtist ?? aliasArtist;
       let kind: ResolutionKind =
@@ -239,15 +241,17 @@ export function resolveSourceIdentities(
       ].filter((id): id is number => id !== undefined);
       const strongTrack = [...new Set(strongTrackIds)];
       let trackId = strongTrack.length === 1 ? strongTrack[0] : undefined;
-      const composite = followActiveManualMerges(
-        connection,
-        "track",
-        uniqueId(
-          connection,
-          `SELECT DISTINCT track.id FROM track JOIN track_alias ON track_alias.track_id=track.id LEFT JOIN release_alias ON release_alias.release_id=track.release_id WHERE track.artist_id=? AND track_alias.normalized_alias=? AND track_alias.normalization_version=? AND ((? IS NULL AND track.release_id IS NULL) OR release_alias.normalized_alias=?)`,
-          [artistId, trackNorm, MATCH_TEXT_NORMALIZATION_VERSION, albumNorm, albumNorm],
-        ),
-      );
+      const composite = canUseNormalizedIdentity
+        ? followActiveManualMerges(
+            connection,
+            "track",
+            uniqueId(
+              connection,
+              `SELECT DISTINCT track.id FROM track JOIN track_alias ON track_alias.track_id=track.id LEFT JOIN release_alias ON release_alias.release_id=track.release_id WHERE track.artist_id=? AND track_alias.normalized_alias=? AND track_alias.normalization_version=? AND ((? IS NULL AND track.release_id IS NULL) OR release_alias.normalized_alias=?)`,
+              [artistId, trackNorm, MATCH_TEXT_NORMALIZATION_VERSION, albumNorm, albumNorm],
+            ),
+          )
+        : undefined;
       if (trackId !== undefined) {
         kind = "trusted_identifier";
         if (composite !== undefined && composite !== trackId) {
