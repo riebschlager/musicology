@@ -263,7 +263,10 @@ describe("exact duplicate event collapse", () => {
           { id: 2, event_status: "superseded", superseded_by_event_id: 1 },
         ],
       );
-      assert.equal(connection.prepare("SELECT count(*) AS count FROM source_record").get()?.count, 2);
+      assert.equal(
+        connection.prepare("SELECT count(*) AS count FROM source_record").get()?.count,
+        2,
+      );
       assert.equal(connection.checkIntegrity().ok, true);
     });
   });
@@ -353,7 +356,10 @@ describe("exact duplicate event collapse", () => {
           { listening_event_id: 1, source_record_id: 2, evidence_role: "exact_duplicate" },
         ],
       );
-      assert.equal(connection.prepare("SELECT count(*) AS count FROM source_record").get()?.count, 2);
+      assert.equal(
+        connection.prepare("SELECT count(*) AS count FROM source_record").get()?.count,
+        2,
+      );
       assert.equal(connection.checkIntegrity().ok, true);
     });
   });
@@ -399,11 +405,12 @@ describe("exact duplicate event collapse", () => {
         spotifyEventsCollapsed: 0,
         lastfmEventsCollapsed: 0,
       });
-      assert.equal(connection.prepare("SELECT count(*) AS count FROM listening_event").get()?.count, 2);
       assert.equal(
-        connection
-          .prepare("SELECT count(*) AS count FROM listening_event_source")
-          .get()?.count,
+        connection.prepare("SELECT count(*) AS count FROM listening_event").get()?.count,
+        2,
+      );
+      assert.equal(
+        connection.prepare("SELECT count(*) AS count FROM listening_event_source").get()?.count,
         2,
       );
     });
