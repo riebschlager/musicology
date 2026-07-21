@@ -16,6 +16,10 @@ P2-06 feature and score fields are populated by the versioned feature pass.
 `migrations/0007_add_reconciliation_match_features.sql` adds nullable short-play and
 competing-candidate clarity fields. NULL preserves the fact that any pre-feature candidate row has
 no reconstructable value rather than fabricating a default.
+`migrations/0008_add_reconciliation_decision_history.sql` adds a policy-application audit layer.
+It preserves each scored candidate feature snapshot while recording the active or superseded
+automatic, review, and ignore outcome. Automatic decisions retain source and target event IDs and
+the prior source-event status so a later policy can reverse and supersede a merge transactionally.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately

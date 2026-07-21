@@ -178,6 +178,7 @@ describe("initial schema contract", () => {
         "music_entity",
         "music_identifier",
         "reconciliation_candidate",
+        "reconciliation_decision",
         "rejected_source_record",
         "release",
         "release_alias",
@@ -296,6 +297,19 @@ describe("initial schema contract", () => {
         "supersedes_candidate_id",
         "short_play_score",
         "competing_candidate_score",
+      ]);
+      assert.deepEqual(columns(connection, "reconciliation_decision"), [
+        "id",
+        "reconciliation_candidate_id",
+        "policy_rule_version",
+        "decision",
+        "applied_at_epoch_ms",
+        "decision_state",
+        "source_listening_event_id",
+        "target_listening_event_id",
+        "source_event_status",
+        "superseded_by_decision_id",
+        "rationale",
       ]);
     });
   });
@@ -473,6 +487,7 @@ describe("initial schema contract", () => {
           "add_identity_resolution",
           "add_cross_source_candidate_generation",
           "add_reconciliation_match_features",
+          "add_reconciliation_decision_history",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

@@ -77,3 +77,14 @@ values and empty labels, but no display text, timestamps, paths, hashes, account
 excluded fields. It is ignored by Git. Label the local sample and retain the resulting aggregate
 calibration rationale without committing any private candidate export. P2-08 will apply this policy;
 this task does not mutate candidate states or canonical events.
+
+P2-08 applies that policy with `pnpm reconcile`. `--dry-run` calculates the same policy bands but
+does not write candidate decisions, event links, or canonical events; `--rule-version` currently
+accepts the named `cross-source-decision-policy-v1` policy explicitly. Only an unambiguous,
+high-confidence pair is automatically accepted. The Last.fm occurrence evidence is linked to the
+Spotify event as `cross_source_match`, with its candidate ID and score, and its former event is
+superseded; neither source evidence nor scored features are deleted. Review candidates remain
+pending for P2-09, and low-confidence pairs are retained as automatically ignored decisions.
+Each applied decision records the policy version and safe rationale in `reconciliation_decision`.
+If a later policy is applied to the same feature candidate, any active automatic merge is restored
+first and the prior decision is marked superseded, preserving a decision lineage.

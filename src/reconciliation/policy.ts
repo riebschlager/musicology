@@ -11,6 +11,14 @@ import { CROSS_SOURCE_MATCH_FEATURE_RULE_VERSION } from "./features.ts";
 export const CROSS_SOURCE_DECISION_POLICY_VERSION = "cross-source-decision-policy-v1";
 export const CALIBRATION_SAMPLE_VERSION = "cross-source-calibration-sample-v1";
 
+export interface CrossSourceDecisionPolicy {
+  readonly featureRuleVersion: string;
+  readonly highConfidenceThreshold: number;
+  readonly ignoreThreshold: number;
+  readonly rationale: string;
+  readonly version: string;
+}
+
 export const CROSS_SOURCE_DECISION_POLICY = {
   featureRuleVersion: CROSS_SOURCE_MATCH_FEATURE_RULE_VERSION,
   highConfidenceThreshold: 0.95,
@@ -18,7 +26,7 @@ export const CROSS_SOURCE_DECISION_POLICY = {
   rationale:
     "A false merge erases a listening-history distinction, so automatic acceptance requires very high aggregate confidence, no strong-identifier disagreement, and exactly one compatible candidate on each side. Candidates below the review threshold are retained as ignored rather than treated as evidence of non-matching identity.",
   version: CROSS_SOURCE_DECISION_POLICY_VERSION,
-} as const;
+} as const satisfies CrossSourceDecisionPolicy;
 
 export type ReconciliationDecision = "auto_accept" | "ignore" | "review";
 
@@ -31,6 +39,10 @@ export interface CandidatePolicyInput {
 /** Applies P2-07 hard rules before confidence bands. It never writes decisions; P2-08 owns that. */
 export function classifyReconciliationCandidate(
   candidate: CandidatePolicyInput,
+  policy: Pick<
+    CrossSourceDecisionPolicy,
+    "highConfidenceThreshold" | "ignoreThreshold"
+  > = CROSS_SOURCE_DECISION_POLICY,
 ): ReconciliationDecision {
   validateScore(candidate.totalConfidence, "totalConfidence");
   validateScore(candidate.competingCandidateScore, "competingCandidateScore");
@@ -42,10 +54,10 @@ export function classifyReconciliationCandidate(
   // P2-06 intentionally records candidate-set ambiguity separately from aggregate confidence.
   if (candidate.competingCandidateScore !== 1) return "review";
 
-  if (candidate.totalConfidence >= CROSS_SOURCE_DECISION_POLICY.highConfidenceThreshold) {
+  if (candidate.totalConfidence >= policy.highConfidenceThreshold) {
     return "auto_accept";
   }
-  if (candidate.totalConfidence >= CROSS_SOURCE_DECISION_POLICY.ignoreThreshold) return "review";
+  if (candidate.totalConfidence >= policy.ignoreThreshold) return "review";
   return "ignore";
 }
 

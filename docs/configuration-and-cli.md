@@ -168,3 +168,18 @@ timestamps, paths, hashes, usernames, secrets, raw records, and all excluded sou
 output reports only aggregate metadata and the fixed filename. The export is a local review aid and
 must not be committed. To protect local labels, the command refuses to overwrite an existing sample;
 move or remove that private artifact deliberately before exporting a replacement.
+
+## Reconciliation
+
+After candidates and match features have been generated, apply the current conservative policy:
+
+```sh
+pnpm reconcile --dry-run
+pnpm reconcile --json --rule-version cross-source-decision-policy-v1
+```
+
+The dry run does not modify the database. A non-dry run performs candidate-state updates,
+decision-history writes, event supersession, and evidence-link moves in one transaction. Output is
+aggregate-only: policy version and counts of automatic accepts, reviews, ignores, and superseded
+automatic decisions; it never returns source display text, timestamps, paths, hashes, or raw
+records.
