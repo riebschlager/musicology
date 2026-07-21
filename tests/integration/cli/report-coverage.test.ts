@@ -51,10 +51,10 @@ describe("report:coverage CLI", () => {
       };
       assert.equal(result.command, "report:coverage");
       assert.equal(result.status, "success");
-      assert.equal(result.data.reportVersion, "coverage-v1");
+      assert.equal(result.data.reportVersion, "coverage-v2");
       assert.equal(result.data.timezone, "America/Chicago");
       assert.equal(result.data.totals.evidenceOccurrences, 0);
-      assert.equal(result.data.semantics.canonicalEventCountsIncluded, false);
+      assert.equal(result.data.semantics.canonicalEventCountsIncluded, true);
       assert.equal(result.data.archiveBaselineComparison.matches, false);
     });
   });
@@ -65,8 +65,8 @@ describe("report:coverage CLI", () => {
 
       assert.equal(completed.status, 0, completed.stderr);
       assert.equal(completed.stderr, "");
-      assert.match(completed.stdout, /Counts are source evidence occurrences/u);
-      assert.match(completed.stdout, /canonical-event counts are not included/u);
+      assert.match(completed.stdout, /Source counts are evidence occurrences/u);
+      assert.match(completed.stdout, /canonical current or unresolved events: 0/u);
       assert.match(completed.stdout, /spotify: 0 evidence/u);
       assert.match(completed.stdout, /lastfm: 0 evidence/u);
       assert.equal(completed.stdout.includes('"sources"'), false);

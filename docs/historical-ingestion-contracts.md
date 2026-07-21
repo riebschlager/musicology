@@ -272,10 +272,11 @@ than permanent truth or acceptance constraints.
 ## Evidence coverage report (P1-07)
 
 `report:coverage` opens only an existing, fully migrated database in read-only mode and computes the
-whole report inside one deferred transaction. Report version `coverage-v1` counts immutable source
+whole report inside one deferred transaction. Report version `coverage-v2` counts immutable source
 evidence occurrences: each Spotify source row is one occurrence, and each Last.fm occurrence link is
-one occurrence even when several links share one fingerprint-unique payload. These are not canonical
-listening-event counts; the JSON contract states that distinction and emits `canonicalEvents: null`.
+one occurrence even when several links share one fingerprint-unique payload. Source occurrence totals
+remain distinct from canonical listening-event counts. The report includes non-superseded canonical
+events and labels their source backing without changing evidence-layer totals.
 
 For each source, the report includes occurrence counts grouped by calendar year in the explicitly
 configured IANA presentation timezone, UTC first/last observations, accepted/rejected/non-music
@@ -284,8 +285,10 @@ missing counts/rates, and long gaps. A long gap is a pair of consecutive observa
 source separated by at least 365 exact 24-hour days. This duration rule is intentionally independent
 of daylight-saving and calendar-year length; changing it requires a report-version change.
 
-The complete JSON report also includes its version, ISO UTC generation time, timezone, registered
-input content hashes ordered by source and hash, and evidence-layer semantics. Paths and source
+The complete JSON report also includes canonical source backing, exact/inferred merge counts,
+unresolved-event rate, and cross-source overlap grouped by presentation-timezone year, plus its
+version, ISO UTC generation time, timezone, registered input content hashes ordered by source and hash,
+and evidence-layer semantics. Paths and source
 display values are omitted. Ordering is explicit throughout, so reports over unchanged evidence are
 identical except for the declared `generatedAt` metadata.
 

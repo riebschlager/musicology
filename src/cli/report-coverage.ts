@@ -64,9 +64,11 @@ function sourceLine(source: SourceCoverage): string {
 export function renderCoverageHuman(report: CoverageReport): string {
   const lines = [
     `Coverage report ${report.reportVersion} generated at ${report.generatedAt}.`,
-    `Timezone: ${report.timezone}. Counts are source evidence occurrences; canonical-event counts are not included.`,
+    `Timezone: ${report.timezone}. Source counts are evidence occurrences; canonical current or unresolved events: ${report.canonical.eventCount}.`,
     `Registered input hashes: ${report.inputFiles.length}.`,
     ...report.sources.map(sourceLine),
+    `Canonical backing: Spotify ${report.canonical.bySourceBacking.spotify}; Last.fm ${report.canonical.bySourceBacking.lastfm}; both ${report.canonical.bySourceBacking.both}.`,
+    `Canonical merges: ${report.canonical.merges.exactDuplicateEvents} exact-duplicate event(s); ${report.canonical.merges.inferredCrossSourceEvents} inferred cross-source event(s); unresolved ${report.canonical.unresolved.eventCount}/${report.canonical.eventCount}.`,
   ];
   if (report.archiveBaselineComparison !== undefined) {
     lines.push(

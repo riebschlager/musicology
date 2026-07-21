@@ -1,7 +1,7 @@
 import type { SqliteConnection, SqliteRow } from "../db/connection.ts";
 import { ARCHIVE_BASELINE } from "./archive-baseline.ts";
 
-export const COVERAGE_REPORT_VERSION = "coverage-v1";
+export const COVERAGE_REPORT_VERSION = "coverage-v2";
 export const LONG_GAP_THRESHOLD_DAYS = 365;
 const DAY_MS = 86_400_000;
 
@@ -78,13 +78,42 @@ export interface ArchiveBaselineComparison {
   readonly deviations: readonly ArchiveBaselineDeviation[];
 }
 
+export interface CanonicalCoverageBySourceBacking {
+  readonly spotify: number;
+  readonly lastfm: number;
+  readonly both: number;
+}
+
+export interface CanonicalCoverageMergeCounts {
+  readonly exactDuplicateEvents: number;
+  readonly exactDuplicateSourceLinks: number;
+  readonly inferredCrossSourceEvents: number;
+  readonly inferredCrossSourceSourceLinks: number;
+}
+
+export interface CanonicalCoverageOverlapYear {
+  readonly year: number;
+  readonly eventCount: number;
+}
+
+export interface CanonicalCoverage {
+  readonly eventCount: number;
+  readonly bySourceBacking: CanonicalCoverageBySourceBacking;
+  readonly merges: CanonicalCoverageMergeCounts;
+  readonly unresolved: {
+    readonly eventCount: number;
+    readonly rate: number;
+  };
+  readonly overlapByYear: readonly CanonicalCoverageOverlapYear[];
+}
+
 export interface CoverageReport {
   readonly reportVersion: string;
   readonly generatedAt: string;
   readonly timezone: string;
   readonly semantics: {
     readonly countLayer: "source_evidence_occurrences";
-    readonly canonicalEventCountsIncluded: false;
+    readonly canonicalEventCountsIncluded: true;
     readonly longGapThresholdDays: number;
     readonly longGapDefinition: string;
   };
@@ -97,8 +126,9 @@ export interface CoverageReport {
     readonly accepted: number;
     readonly rejected: number;
     readonly nonMusic: number;
-    readonly canonicalEvents: null;
+    readonly canonicalEvents: number;
   };
+  readonly canonical: CanonicalCoverage;
   readonly sources: readonly SourceCoverage[];
   readonly archiveBaselineComparison?: ArchiveBaselineComparison;
 }
@@ -319,6 +349,108 @@ function archiveBaselineComparison(sources: readonly SourceCoverage[]): ArchiveB
   return { version: ARCHIVE_BASELINE.version, matches: deviations.length === 0, deviations };
 }
 
+interface CanonicalBackingRow extends SqliteRow {
+  readonly source_backing: "both" | "lastfm" | "spotify";
+  readonly count: number;
+}
+
+interface CanonicalYearRow extends SqliteRow {
+  readonly observed_at_epoch_ms: number;
+}
+
+function canonicalCoverage(connection: SqliteConnection, timezone: string): CanonicalCoverage {
+  const backingRows = connection
+    .prepare<CanonicalBackingRow>(
+      `SELECT CASE
+              WHEN count(DISTINCT source.source_kind) = 2 THEN 'both'
+                WHEN max(source.source_kind) = 'spotify' THEN 'spotify'
+                ELSE 'lastfm'
+              END AS source_backing,
+              1 AS count
+         FROM listening_event AS event
+         JOIN listening_event_source AS link ON link.listening_event_id = event.id
+         JOIN source_record AS source ON source.id = link.source_record_id
+        WHERE event.event_status <> 'superseded'
+        GROUP BY event.id`,
+    )
+    .all();
+  const bySourceBacking: Record<CanonicalBackingRow["source_backing"], number> = {
+    lastfm: 0,
+    spotify: 0,
+    both: 0,
+  };
+  for (const row of backingRows) bySourceBacking[row.source_backing] += row.count;
+  const eventCount = bySourceBacking.spotify + bySourceBacking.lastfm + bySourceBacking.both;
+  const exactDuplicateEvents = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM listening_event AS event
+      WHERE event.event_status <> 'superseded'
+        AND EXISTS (
+          SELECT 1 FROM listening_event_source AS link
+           WHERE link.listening_event_id = event.id AND link.evidence_role = 'exact_duplicate'
+        )`,
+  );
+  const exactDuplicateSourceLinks = count(
+    connection,
+    "SELECT count(*) AS count FROM listening_event_source WHERE evidence_role = 'exact_duplicate'",
+  );
+  const inferredCrossSourceEvents = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM listening_event AS event
+      WHERE event.event_status <> 'superseded'
+        AND EXISTS (
+          SELECT 1 FROM listening_event_source AS link
+           WHERE link.listening_event_id = event.id AND link.evidence_role = 'cross_source_match'
+        )`,
+  );
+  const inferredCrossSourceSourceLinks = count(
+    connection,
+    "SELECT count(*) AS count FROM listening_event_source WHERE evidence_role = 'cross_source_match'",
+  );
+  const unresolvedEventCount = count(
+    connection,
+    "SELECT count(*) AS count FROM listening_event WHERE event_status = 'unresolved'",
+  );
+  const formatter = reportYearFormatter(timezone);
+  const overlapYears = new Map<number, number>();
+  const overlapTimestamps = connection
+    .prepare<CanonicalYearRow>(
+      `SELECT coalesce(event.started_at_epoch_ms, event.ended_at_epoch_ms) AS observed_at_epoch_ms
+         FROM listening_event AS event
+         JOIN listening_event_source AS link ON link.listening_event_id = event.id
+         JOIN source_record AS source ON source.id = link.source_record_id
+        WHERE event.event_status <> 'superseded'
+        GROUP BY event.id
+       HAVING count(DISTINCT source.source_kind) = 2
+        ORDER BY observed_at_epoch_ms, event.id`,
+    )
+    .all();
+  for (const row of overlapTimestamps) {
+    const year = Number(formatter.format(row.observed_at_epoch_ms));
+    overlapYears.set(year, (overlapYears.get(year) ?? 0) + 1);
+  }
+
+  return {
+    eventCount,
+    bySourceBacking,
+    merges: {
+      exactDuplicateEvents,
+      exactDuplicateSourceLinks,
+      inferredCrossSourceEvents,
+      inferredCrossSourceSourceLinks,
+    },
+    unresolved: {
+      eventCount: unresolvedEventCount,
+      rate: eventCount === 0 ? 0 : unresolvedEventCount / eventCount,
+    },
+    overlapByYear: [...overlapYears.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([year, count]) => ({ year, eventCount: count })),
+  };
+}
+
 /** Builds a deterministic evidence-layer report from one committed database snapshot. */
 export function generateCoverageReport(options: GenerateCoverageReportOptions): CoverageReport {
   const generatedAtEpochMs = (options.now ?? Date.now)();
@@ -344,6 +476,7 @@ export function generateCoverageReport(options: GenerateCoverageReportOptions): 
     const evidenceOccurrences = sources.reduce((sum, source) => sum + source.evidenceCount, 0);
     const rejected = sources.reduce((sum, source) => sum + source.totals.rejected, 0);
     const nonMusic = sources.reduce((sum, source) => sum + source.totals.nonMusic, 0);
+    const canonical = canonicalCoverage(connection, options.timezone);
 
     return {
       reportVersion: COVERAGE_REPORT_VERSION,
@@ -351,7 +484,7 @@ export function generateCoverageReport(options: GenerateCoverageReportOptions): 
       timezone: options.timezone,
       semantics: {
         countLayer: "source_evidence_occurrences",
-        canonicalEventCountsIncluded: false,
+        canonicalEventCountsIncluded: true,
         longGapThresholdDays: LONG_GAP_THRESHOLD_DAYS,
         longGapDefinition:
           "Consecutive observations from the same source separated by at least 365 exact 24-hour days.",
@@ -362,8 +495,9 @@ export function generateCoverageReport(options: GenerateCoverageReportOptions): 
         accepted: evidenceOccurrences,
         rejected,
         nonMusic,
-        canonicalEvents: null,
+        canonicalEvents: canonical.eventCount,
       },
+      canonical,
       sources,
       ...(options.compareArchiveBaseline
         ? { archiveBaselineComparison: archiveBaselineComparison(sources) }

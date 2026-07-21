@@ -4,6 +4,11 @@ import { describe, it } from "node:test";
 import { importLastfmExportFiles } from "../../../src/importers/lastfm-export/persistence.ts";
 import { importSpotifyFiles } from "../../../src/importers/spotify/persistence.ts";
 import {
+  collapseExactDuplicateEvents,
+  createCanonicalEvents,
+} from "../../../src/identity/events.ts";
+import { resolveSourceIdentities } from "../../../src/identity/resolution.ts";
+import {
   COVERAGE_REPORT_VERSION,
   generateCoverageReport,
   LONG_GAP_THRESHOLD_DAYS,
@@ -73,6 +78,9 @@ function importCoverageFixtures(workspace: TemporaryTestWorkspace): void {
     now: () => 1_800_000_001_000,
     schemaVersion: "4",
   });
+  resolveSourceIdentities(workspace.connection, { now: () => 1_800_000_001_500 });
+  createCanonicalEvents(workspace.connection);
+  collapseExactDuplicateEvents(workspace.connection);
 }
 
 describe("coverage reporting", () => {
@@ -89,12 +97,22 @@ describe("coverage reporting", () => {
 
       assert.equal(report.reportVersion, COVERAGE_REPORT_VERSION);
       assert.equal(report.generatedAt, "2026-07-19T12:00:00.000Z");
-      assert.equal(report.semantics.canonicalEventCountsIncluded, false);
+      assert.equal(report.semantics.canonicalEventCountsIncluded, true);
       assert.equal(report.totals.evidenceOccurrences, 6);
       assert.equal(report.totals.accepted, 6);
       assert.equal(report.totals.rejected, 2);
       assert.equal(report.totals.nonMusic, 1);
-      assert.equal(report.totals.canonicalEvents, null);
+      assert.equal(report.totals.canonicalEvents, 4);
+      assert.deepEqual(report.canonical.bySourceBacking, { spotify: 2, lastfm: 2, both: 0 });
+      assert.deepEqual(report.canonical.merges, {
+        exactDuplicateEvents: 2,
+        exactDuplicateSourceLinks: 2,
+        inferredCrossSourceEvents: 0,
+        inferredCrossSourceSourceLinks: 0,
+      });
+      assert.equal(report.canonical.unresolved.eventCount, 0);
+      assert.equal(report.canonical.unresolved.rate, 0);
+      assert.deepEqual(report.canonical.overlapByYear, []);
       assert.equal(JSON.stringify(report).includes(PRIVATE_SENTINEL), false);
       assert.equal(report.inputFiles.length, 2);
       assert.ok(report.inputFiles.every((file) => /^[0-9a-f]{64}$/u.test(file.sha256)));

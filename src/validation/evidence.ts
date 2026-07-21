@@ -26,6 +26,8 @@ export interface EvidenceValidationResult {
     readonly sourceRecords: number;
     readonly rejectedRecords: number;
     readonly fingerprints: number;
+    readonly canonicalEvents: number;
+    readonly reconciliationCandidates: number;
   };
   readonly integrity: IntegrityCheckResult;
   readonly errors: readonly EvidenceValidationIssue[];
@@ -663,6 +665,399 @@ function validateRejections(
   return rejections;
 }
 
+function validateCanonicalInterpretations(
+  connection: SqliteConnection,
+  errors: EvidenceValidationIssue[],
+): void {
+  const unlinkedEvidence = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM source_record AS source
+       LEFT JOIN source_identity_resolution AS resolution ON resolution.source_record_id = source.id
+       LEFT JOIN listening_event_source AS link ON link.source_record_id = source.id
+      WHERE resolution.source_record_id IS NULL OR link.source_record_id IS NULL`,
+  );
+  if (unlinkedEvidence > 0) {
+    addError(
+      errors,
+      "canonical_interpretation_missing",
+      `${unlinkedEvidence} accepted source record(s) lack an identity resolution or canonical event source link.`,
+    );
+  }
+
+  const emptyEvents = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM (
+         SELECT event.id
+           FROM listening_event AS event
+           LEFT JOIN listening_event_source AS link ON link.listening_event_id = event.id
+          WHERE event.event_status <> 'superseded'
+          GROUP BY event.id
+         HAVING count(link.source_record_id) = 0
+       )`,
+  );
+  if (emptyEvents > 0) {
+    addError(
+      errors,
+      "canonical_event_without_source",
+      `${emptyEvents} canonical event(s) have no source evidence link.`,
+    );
+  }
+
+  const invalidStatuses = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM source_identity_resolution AS resolution
+       JOIN listening_event_source AS link ON link.source_record_id = resolution.source_record_id
+       JOIN listening_event AS event ON event.id = link.listening_event_id
+      WHERE (resolution.resolution_kind = 'new_unresolved'
+             AND event.event_status NOT IN ('unresolved', 'superseded'))
+         OR (resolution.resolution_kind <> 'new_unresolved'
+             AND event.event_status = 'unresolved')`,
+  );
+  if (invalidStatuses > 0) {
+    addError(
+      errors,
+      "canonical_unresolved_state_invalid",
+      `${invalidStatuses} source interpretation(s) disagree with their canonical unresolved state.`,
+    );
+  }
+
+  const invalidSupersededEvents = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM listening_event AS event
+      WHERE (event.event_status = 'superseded' AND EXISTS (
+               SELECT 1 FROM listening_event_source AS link WHERE link.listening_event_id = event.id
+             ))
+         OR (event.event_status <> 'superseded' AND event.superseded_by_event_id IS NOT NULL)`,
+  );
+  if (invalidSupersededEvents > 0) {
+    addError(
+      errors,
+      "canonical_event_lineage_invalid",
+      `${invalidSupersededEvents} canonical event(s) have invalid supersession lineage.`,
+    );
+  }
+}
+
+function validateIdentityGraph(
+  connection: SqliteConnection,
+  errors: EvidenceValidationIssue[],
+): void {
+  const invalidEntities = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM music_entity AS entity
+       LEFT JOIN artist ON artist.id = entity.id
+       LEFT JOIN release ON release.id = entity.id
+       LEFT JOIN track ON track.id = entity.id
+      WHERE (entity.entity_type = 'artist' AND (artist.id IS NULL OR release.id IS NOT NULL OR track.id IS NOT NULL))
+         OR (entity.entity_type = 'release' AND (release.id IS NULL OR artist.id IS NOT NULL OR track.id IS NOT NULL))
+         OR (entity.entity_type = 'track' AND (track.id IS NULL OR artist.id IS NOT NULL OR release.id IS NOT NULL))`,
+  );
+  if (invalidEntities > 0) {
+    addError(
+      errors,
+      "identity_graph_entity_invalid",
+      `${invalidEntities} identity entity node(s) have an invalid subtype shape.`,
+    );
+  }
+  const invalidResolutions = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM source_identity_resolution AS resolution
+       JOIN track ON track.id = resolution.track_id
+      WHERE resolution.artist_id <> track.artist_id
+         OR (resolution.release_id IS NOT NULL AND resolution.release_id IS NOT track.release_id)`,
+  );
+  if (invalidResolutions > 0) {
+    addError(
+      errors,
+      "identity_resolution_graph_invalid",
+      `${invalidResolutions} source identity resolution(s) disagree with their track graph.`,
+    );
+  }
+  const invalidIdentifierOwners = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM music_identifier AS identifier
+       JOIN music_entity AS entity ON entity.id = identifier.entity_id
+      WHERE (identifier.namespace IN ('spotify_artist_uri', 'musicbrainz_artist_id') AND entity.entity_type <> 'artist')
+         OR (identifier.namespace IN ('spotify_release_uri', 'musicbrainz_release_id') AND entity.entity_type <> 'release')
+         OR (identifier.namespace IN ('spotify_track_uri', 'musicbrainz_recording_id') AND entity.entity_type <> 'track')`,
+  );
+  if (invalidIdentifierOwners > 0) {
+    addError(
+      errors,
+      "identity_identifier_owner_invalid",
+      `${invalidIdentifierOwners} strong identifier(s) belong to an incompatible identity type.`,
+    );
+  }
+  const invalidConflicts = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM identity_resolution_conflict AS conflict
+       JOIN music_entity AS strong_entity ON strong_entity.id = conflict.strong_entity_id
+      JOIN music_entity AS conflicting_entity ON conflicting_entity.id = conflict.conflicting_entity_id
+      WHERE strong_entity.entity_type <> conflict.entity_type
+         OR conflicting_entity.entity_type <> conflict.entity_type`,
+  );
+  if (invalidConflicts > 0) {
+    addError(
+      errors,
+      "identity_conflict_invalid",
+      `${invalidConflicts} recorded identifier conflict(s) have incompatible identity graph nodes.`,
+    );
+  }
+
+  const unresolvedStrongIdentifiers = count(
+    connection,
+    `WITH RECURSIVE
+       active_manual_merge AS (
+         SELECT object_entity_id, subject_entity_id
+           FROM identity_decision
+          WHERE decision_type = 'merge'
+            AND NOT EXISTS (
+              SELECT 1
+                FROM identity_decision AS superseding
+               WHERE superseding.supersedes_decision_id = identity_decision.id
+            )
+       ),
+       effective_entity (original_id, entity_id) AS (
+         SELECT id, id FROM music_entity
+         UNION
+         SELECT effective_entity.original_id, active_manual_merge.subject_entity_id
+           FROM effective_entity
+           JOIN active_manual_merge
+             ON active_manual_merge.object_entity_id = effective_entity.entity_id
+       ),
+       source_identifier AS (
+         SELECT resolution.source_record_id, 'track' AS entity_type,
+                resolution.track_id AS resolved_entity_id,
+                'spotify_track_uri' AS namespace, spotify.spotify_track_uri AS identifier_value
+           FROM source_identity_resolution AS resolution
+           JOIN spotify_play_source AS spotify ON spotify.source_record_id = resolution.source_record_id
+         UNION ALL
+         SELECT resolution.source_record_id, 'artist', resolution.artist_id,
+                'musicbrainz_artist_id', lastfm.artist_musicbrainz_id
+           FROM source_identity_resolution AS resolution
+           JOIN lastfm_scrobble_occurrence AS occurrence
+             ON occurrence.source_record_id = resolution.source_record_id
+           JOIN lastfm_scrobble_source AS lastfm
+             ON lastfm.source_record_id = occurrence.lastfm_scrobble_source_record_id
+          WHERE lastfm.artist_musicbrainz_id IS NOT NULL
+         UNION ALL
+         SELECT resolution.source_record_id, 'release', resolution.release_id,
+                'musicbrainz_release_id', lastfm.release_musicbrainz_id
+           FROM source_identity_resolution AS resolution
+           JOIN lastfm_scrobble_occurrence AS occurrence
+             ON occurrence.source_record_id = resolution.source_record_id
+           JOIN lastfm_scrobble_source AS lastfm
+             ON lastfm.source_record_id = occurrence.lastfm_scrobble_source_record_id
+          WHERE lastfm.release_musicbrainz_id IS NOT NULL
+         UNION ALL
+         SELECT resolution.source_record_id, 'track', resolution.track_id,
+                'musicbrainz_recording_id', lastfm.recording_musicbrainz_id
+           FROM source_identity_resolution AS resolution
+           JOIN lastfm_scrobble_occurrence AS occurrence
+             ON occurrence.source_record_id = resolution.source_record_id
+           JOIN lastfm_scrobble_source AS lastfm
+             ON lastfm.source_record_id = occurrence.lastfm_scrobble_source_record_id
+          WHERE lastfm.recording_musicbrainz_id IS NOT NULL
+       )
+       SELECT count(*) AS count
+         FROM source_identifier AS source_identifier
+         LEFT JOIN music_identifier AS identifier
+           ON identifier.namespace = source_identifier.namespace
+          AND identifier.identifier_value = source_identifier.identifier_value
+        WHERE identifier.id IS NULL
+           OR NOT EXISTS (
+             SELECT 1
+               FROM effective_entity AS resolved_entity
+               JOIN effective_entity AS identifier_entity
+                 ON identifier_entity.entity_id = resolved_entity.entity_id
+              WHERE resolved_entity.original_id = source_identifier.resolved_entity_id
+                AND identifier_entity.original_id = identifier.entity_id
+           )
+              AND NOT EXISTS (
+                SELECT 1
+                  FROM identity_resolution_conflict AS conflict
+                 WHERE conflict.source_record_id = source_identifier.source_record_id
+                   AND conflict.entity_type = source_identifier.entity_type
+                   AND ((conflict.strong_entity_id = identifier.entity_id
+                         AND conflict.conflicting_entity_id = source_identifier.resolved_entity_id)
+                     OR (conflict.strong_entity_id = source_identifier.resolved_entity_id
+                         AND conflict.conflicting_entity_id = identifier.entity_id))
+              )`,
+  );
+  if (unresolvedStrongIdentifiers > 0) {
+    addError(
+      errors,
+      "identity_strong_identifier_conflict_unresolved",
+      `${unresolvedStrongIdentifiers} strong source identifier(s) do not resolve to their identity or an explicit conflict.`,
+    );
+  }
+}
+
+function validateDecisionLineage(
+  connection: SqliteConnection,
+  errors: EvidenceValidationIssue[],
+): void {
+  const invalidLineage = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM reconciliation_decision AS decision
+       LEFT JOIN reconciliation_decision AS replacement ON replacement.id = decision.superseded_by_decision_id
+      WHERE (decision.decision_state = 'active' AND decision.superseded_by_decision_id IS NOT NULL)
+         OR (decision.decision_state = 'superseded' AND (replacement.id IS NULL OR replacement.reconciliation_candidate_id <> decision.reconciliation_candidate_id))`,
+  );
+  const multipleActive = count(
+    connection,
+    `SELECT count(*) AS count FROM (
+       SELECT reconciliation_candidate_id
+         FROM reconciliation_decision
+        WHERE decision_state = 'active'
+        GROUP BY reconciliation_candidate_id
+       HAVING count(*) > 1
+     )`,
+  );
+  const invalidAutoAccept = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM reconciliation_decision AS decision
+       LEFT JOIN listening_event AS source_event ON source_event.id = decision.source_listening_event_id
+       LEFT JOIN listening_event AS target_event ON target_event.id = decision.target_listening_event_id
+      WHERE decision.decision = 'auto_accept'
+        AND decision.decision_state = 'active'
+        AND (source_event.id IS NULL OR target_event.id IS NULL
+             OR source_event.event_status <> 'superseded'
+             OR source_event.superseded_by_event_id <> target_event.id
+             OR NOT EXISTS (
+               SELECT 1 FROM listening_event_source AS link
+                WHERE link.listening_event_id = target_event.id
+                  AND link.reconciliation_candidate_id = decision.reconciliation_candidate_id
+                  AND link.evidence_role = 'cross_source_match'
+             ))`,
+  );
+  if (invalidLineage + multipleActive + invalidAutoAccept > 0) {
+    addError(
+      errors,
+      "reconciliation_decision_lineage_invalid",
+      `${invalidLineage + multipleActive + invalidAutoAccept} reconciliation decision lineage invariant(s) failed.`,
+    );
+  }
+
+  const invalidManualReconciliation = count(
+    connection,
+    `WITH current_manual_decision AS (
+       SELECT manual.decision_key, manual.reconciliation_candidate_id, manual.decision,
+              manual.source_listening_event_id, manual.target_listening_event_id,
+              manual.source_event_status,
+              row_number() OVER (
+                PARTITION BY manual.reconciliation_candidate_id
+                ORDER BY artifact.imported_at_epoch_ms DESC, manual.rowid DESC
+              ) AS decision_rank
+         FROM manual_reconciliation_decision AS manual
+         JOIN manual_decision_artifact AS artifact ON artifact.decision_key = manual.decision_key
+     )
+     SELECT count(*) AS count
+       FROM manual_reconciliation_decision AS manual
+       JOIN manual_decision_artifact AS artifact ON artifact.decision_key = manual.decision_key
+       LEFT JOIN current_manual_decision AS current
+         ON current.decision_key = manual.decision_key
+        AND current.decision_rank = 1
+       LEFT JOIN reconciliation_candidate AS candidate
+         ON candidate.id = manual.reconciliation_candidate_id
+       LEFT JOIN listening_event AS source_event ON source_event.id = manual.source_listening_event_id
+       LEFT JOIN listening_event AS target_event ON target_event.id = manual.target_listening_event_id
+      WHERE artifact.decision_type <> manual.decision
+         OR (current.decision_key IS NOT NULL AND current.decision = 'reject'
+             AND (manual.source_listening_event_id IS NOT NULL
+                  OR manual.target_listening_event_id IS NOT NULL
+                  OR manual.source_event_status IS NOT NULL
+                  OR candidate.candidate_state <> 'manually_rejected'))
+         OR (current.decision_key IS NOT NULL AND current.decision = 'accept'
+             AND (source_event.id IS NULL OR target_event.id IS NULL
+                  OR source_event.event_status <> 'superseded'
+                  OR source_event.superseded_by_event_id <> target_event.id
+                  OR candidate.candidate_state <> 'manually_accepted'
+                  OR NOT EXISTS (
+                    SELECT 1
+                      FROM listening_event_source AS spotify_link
+                     WHERE spotify_link.listening_event_id = target_event.id
+                       AND spotify_link.source_record_id = candidate.spotify_source_record_id
+                  )
+                  OR NOT EXISTS (
+                    SELECT 1
+                      FROM listening_event_source AS lastfm_link
+                     WHERE lastfm_link.listening_event_id = target_event.id
+                       AND lastfm_link.source_record_id = candidate.lastfm_source_record_id
+                       AND lastfm_link.evidence_role = 'cross_source_match'
+                       AND lastfm_link.reconciliation_candidate_id = candidate.id)))`,
+  );
+  if (invalidManualReconciliation > 0) {
+    addError(
+      errors,
+      "manual_reconciliation_decision_lineage_invalid",
+      `${invalidManualReconciliation} manual reconciliation decision lineage invariant(s) failed.`,
+    );
+  }
+
+  const invalidIdentityLineage = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM identity_decision AS decision
+       LEFT JOIN identity_decision AS superseded ON superseded.id = decision.supersedes_decision_id
+       LEFT JOIN music_entity AS subject ON subject.id = decision.subject_entity_id
+       LEFT JOIN music_entity AS object ON object.id = decision.object_entity_id
+       LEFT JOIN manual_identity_decision AS manual ON manual.identity_decision_id = decision.id
+       LEFT JOIN manual_decision_artifact AS artifact ON artifact.decision_key = manual.decision_key
+      WHERE (decision.decision_type IN ('merge', 'split')
+             AND (subject.entity_type <> object.entity_type OR object.id IS NULL))
+         OR (decision.supersedes_decision_id IS NOT NULL
+             AND (decision.decision_type <> 'split'
+                  OR superseded.id IS NULL
+                  OR superseded.decision_type <> 'merge'
+                  OR decision.subject_entity_id <> superseded.subject_entity_id
+                  OR decision.object_entity_id <> superseded.object_entity_id))
+         OR (manual.decision_key IS NOT NULL AND artifact.decision_type <> decision.decision_type)`,
+  );
+  if (invalidIdentityLineage > 0) {
+    addError(
+      errors,
+      "identity_decision_lineage_invalid",
+      `${invalidIdentityLineage} identity decision lineage invariant(s) failed.`,
+    );
+  }
+}
+
+function validateRuleVersions(
+  connection: SqliteConnection,
+  errors: EvidenceValidationIssue[],
+): void {
+  const invalidVersions = count(
+    connection,
+    `SELECT count(*) AS count FROM (
+       SELECT resolution_rule_version AS version FROM source_identity_resolution
+       UNION ALL SELECT normalization_version FROM source_identity_resolution
+       UNION ALL SELECT reconciliation_rule_version FROM listening_event
+       UNION ALL SELECT rule_version FROM reconciliation_candidate
+       UNION ALL SELECT generation_rule_version FROM cross_source_candidate_generation
+       UNION ALL SELECT policy_rule_version FROM reconciliation_decision
+       UNION ALL SELECT artifact_version FROM manual_decision_artifact
+     ) WHERE length(trim(version)) = 0`,
+  );
+  if (invalidVersions > 0) {
+    addError(
+      errors,
+      "reconciliation_rule_version_invalid",
+      `${invalidVersions} identity or reconciliation rows have an empty rule version.`,
+    );
+  }
+}
+
 function archiveBaselineFindings(connection: SqliteConnection): readonly EvidenceValidationIssue[] {
   const metrics = [
     {
@@ -743,6 +1138,10 @@ export function validateEvidenceLayer(
     validateOrdinals(snapshotConnection, files, runs, errors);
     const fingerprints = validateFingerprints(snapshotConnection, errors);
     const rejections = validateRejections(snapshotConnection, errors);
+    validateCanonicalInterpretations(snapshotConnection, errors);
+    validateIdentityGraph(snapshotConnection, errors);
+    validateDecisionLineage(snapshotConnection, errors);
+    validateRuleVersions(snapshotConnection, errors);
     const integrity = snapshotConnection.checkIntegrity();
     if (!integrity.ok) {
       addError(
@@ -760,6 +1159,11 @@ export function validateEvidenceLayer(
         sourceRecords: count(snapshotConnection, "SELECT count(*) AS count FROM source_record"),
         rejectedRecords: rejections.length,
         fingerprints,
+        canonicalEvents: count(snapshotConnection, "SELECT count(*) AS count FROM listening_event"),
+        reconciliationCandidates: count(
+          snapshotConnection,
+          "SELECT count(*) AS count FROM reconciliation_candidate",
+        ),
       },
       integrity,
       errors,
