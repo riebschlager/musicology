@@ -31,6 +31,9 @@ interface CandidatePairRow extends SqliteRow {
  * P2-04 exact duplicates do not multiply cross-source candidate pairs.
  */
 export const CROSS_SOURCE_CANDIDATE_PAIRS_SQL = `
+  WITH minute_block_offset(offset) AS (
+    VALUES (0), (-1), (1), (-2), (2)
+  )
   SELECT spotify.source_record_id AS spotify_source_record_id,
          lastfm.source_record_id AS lastfm_source_record_id,
          CASE
@@ -47,8 +50,11 @@ export const CROSS_SOURCE_CANDIDATE_PAIRS_SQL = `
     JOIN listening_event AS spotify_event
       ON spotify_event.id = spotify_link.listening_event_id
      AND spotify_event.event_status IN ('current', 'unresolved')
-    CROSS JOIN lastfm_scrobble_source AS lastfm
+    CROSS JOIN minute_block_offset AS block_offset
+    JOIN lastfm_scrobble_source AS lastfm
       INDEXED BY lastfm_scrobble_source_time_block_idx
+      ON (lastfm.scrobbled_at_epoch_ms / ${String(TIME_BLOCK_MS)}) =
+           ((spotify.stopped_at_epoch_ms - spotify.ms_played) / ${String(TIME_BLOCK_MS)}) + block_offset.offset
     JOIN lastfm_scrobble_occurrence AS lastfm_occurrence
       ON lastfm_occurrence.lastfm_scrobble_source_record_id = lastfm.source_record_id
     JOIN source_identity_resolution AS lastfm_resolution
@@ -59,9 +65,7 @@ export const CROSS_SOURCE_CANDIDATE_PAIRS_SQL = `
     JOIN listening_event AS lastfm_event
       ON lastfm_event.id = lastfm_link.listening_event_id
      AND lastfm_event.event_status IN ('current', 'unresolved')
-   WHERE (lastfm.scrobbled_at_epoch_ms / ${String(TIME_BLOCK_MS)}) BETWEEN
-           ((spotify.stopped_at_epoch_ms - spotify.ms_played) / ${String(TIME_BLOCK_MS)}) - @blockRadius
-           AND ((spotify.stopped_at_epoch_ms - spotify.ms_played) / ${String(TIME_BLOCK_MS)}) + @blockRadius
+   WHERE abs(block_offset.offset) <= @blockRadius
      AND abs(lastfm.scrobbled_at_epoch_ms - (spotify.stopped_at_epoch_ms - spotify.ms_played)) <= @windowMs
      AND (
        spotify_resolution.track_id = lastfm_resolution.track_id

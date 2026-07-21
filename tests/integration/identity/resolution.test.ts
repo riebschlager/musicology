@@ -128,6 +128,51 @@ describe("identity resolution", () => {
     });
   });
 
+  it("records a trusted release disagreement without rewriting an established track release", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      sourceRecord(connection, 1, "Artist", "Track One", "Release One", "recording-one");
+      sourceRecord(connection, 2, "Artist", "Track Two", "Release Two", "recording-two");
+      connection
+        .prepare(
+          "UPDATE lastfm_scrobble_source SET release_musicbrainz_id = ? WHERE source_record_id = ?",
+        )
+        .run(["release-one", 1]);
+      connection
+        .prepare(
+          "UPDATE lastfm_scrobble_source SET release_musicbrainz_id = ? WHERE source_record_id = ?",
+        )
+        .run(["release-two", 2]);
+      resolveSourceIdentities(connection, { now: () => 5 });
+
+      sourceRecord(connection, 3, "Artist", "Track One", "Release Two", "recording-one");
+      connection
+        .prepare(
+          "UPDATE lastfm_scrobble_source SET release_musicbrainz_id = ? WHERE source_record_id = ?",
+        )
+        .run(["release-two", 3]);
+
+      assert.deepEqual(resolveSourceIdentities(connection, { now: () => 6 }), {
+        processed: 1,
+        resolved: 1,
+        conflicts: 1,
+      });
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT conflict.entity_type, resolution.release_id = track.release_id AS retained_track_release
+               FROM identity_resolution_conflict AS conflict
+               JOIN source_identity_resolution AS resolution
+                 ON resolution.source_record_id = conflict.source_record_id
+               JOIN track ON track.id = resolution.track_id
+              WHERE conflict.source_record_id = 3`,
+          )
+          .all(),
+        [{ entity_type: "release", retained_track_release: 1 }],
+      );
+    });
+  });
+
   it("retains punctuation-only display text as an explicit unresolved identity", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       applyMigrations(connection, migrationsDirectory);

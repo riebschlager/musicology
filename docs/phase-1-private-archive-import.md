@@ -52,13 +52,12 @@ Its single 3,236-day evidence gap runs from September 2016 to July 2025 and expl
 absence of observations in 2017 through 2024. Spotify retains the documented sparse early years and
 continuous later coverage.
 
-The opt-in baseline comparison reported one non-fatal deviation: 391 duplicate Spotify music
-evidence occurrences rather than the approach inventory's 401 duplicate audio rows. Aggregate
-inspection of exact immutable input rows explains the difference completely. All Spotify audio rows
-contain 401 extras across 388 exact duplicate groups; the 83 excluded podcast/audiobook rows contain
-10 of those extras across 8 groups. Accepted track evidence therefore contains 391 extras across 380
-groups, which is the correct evidence-layer coverage value. No baseline source count, range, gap, or
-Last.fm duplicate observation remains unexplained.
+The coverage baseline uses 391 duplicate Spotify music-evidence occurrences. Aggregate inspection of
+exact immutable input rows explains the distinction from the approach inventory completely: all
+Spotify audio rows contain 401 extras across 388 exact duplicate groups, while the 83 excluded
+podcast/audiobook rows contain 10 extras across 8 groups. Accepted track evidence therefore contains
+391 extras across 380 groups, which is the correct evidence-layer coverage value. No baseline source
+count, range, gap, or Last.fm duplicate observation remains unexplained.
 
 ## Validation and privacy audit
 

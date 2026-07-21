@@ -139,6 +139,7 @@ export function calculateCrossSourceMatchFeatures(
 function calculateFeatures(pairs: readonly GeneratedPairRow[]): readonly CandidateFeature[] {
   const spotifyCounts = countBy(pairs, (pair) => pair.spotify_source_record_id);
   const lastfmCounts = countBy(pairs, (pair) => pair.lastfm_source_record_id);
+  const nearestIndependentNeighbors = findNearestIndependentNeighbors(pairs);
   return pairs.map((pair, index) => {
     const startDeltaMs = pair.lastfm_scrobbled_at_epoch_ms - pair.spotify_started_at_epoch_ms;
     const competingCandidateScore =
@@ -165,7 +166,7 @@ function calculateFeatures(pairs: readonly GeneratedPairRow[]): readonly Candida
         0,
         1 - Math.abs(startDeltaMs) / Math.max(pair.spotify_ms_played, TIME_SCORE_FLOOR_MS),
       ),
-      orderingScore: orderingScore(pairs, index),
+      orderingScore: orderingScore(pair, nearestIndependentNeighbors[index]),
       ambiguityScore: 1 - competingCandidateScore,
       competingCandidateScore,
       shortPlayScore:
@@ -192,23 +193,76 @@ function albumScore(left: string | null, right: string | null): number | null {
   return normalizeMatchText(left) === normalizeMatchText(right) ? 1 : 0;
 }
 
-function orderingScore(pairs: readonly GeneratedPairRow[], index: number): number | null {
-  const current = pairs[index];
-  if (current === undefined) return null;
-  const neighbors = pairs
-    .map((pair, neighborIndex) => ({ pair, neighborIndex }))
-    .filter(
-      ({ pair, neighborIndex }) =>
-        neighborIndex !== index &&
-        pair.spotify_source_record_id !== current.spotify_source_record_id &&
-        pair.lastfm_source_record_id !== current.lastfm_source_record_id,
-    )
+/**
+ * Finds each candidate's nearest independent neighbor from one ordering pass instead of sorting
+ * the full candidate set once per row. Candidate pairs are normally sparse within the bounded
+ * window, so the bidirectional scan stops at the first compatible nearby pair; it preserves the
+ * previous stable input-order tie-break when two timestamps are equally distant.
+ */
+function findNearestIndependentNeighbors(
+  pairs: readonly GeneratedPairRow[],
+): readonly (GeneratedPairRow | undefined)[] {
+  const bySpotifyStart = pairs
+    .map((pair, index) => ({ index, pair }))
     .sort(
       (left, right) =>
-        Math.abs(left.pair.spotify_started_at_epoch_ms - current.spotify_started_at_epoch_ms) -
-        Math.abs(right.pair.spotify_started_at_epoch_ms - current.spotify_started_at_epoch_ms),
+        left.pair.spotify_started_at_epoch_ms - right.pair.spotify_started_at_epoch_ms ||
+        left.index - right.index,
     );
-  const neighbor = neighbors[0]?.pair;
+  const positionByIndex = new Map(
+    bySpotifyStart.map((candidate, position) => [candidate.index, position]),
+  );
+  return pairs.map((current, index) => {
+    const position = positionByIndex.get(index);
+    if (position === undefined) return undefined;
+    let left = position - 1;
+    let right = position + 1;
+    let nearest: { readonly index: number; readonly pair: GeneratedPairRow } | undefined;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    while (left >= 0 || right < bySpotifyStart.length) {
+      const leftCandidate = left >= 0 ? bySpotifyStart[left] : undefined;
+      const rightCandidate = right < bySpotifyStart.length ? bySpotifyStart[right] : undefined;
+      const leftDistance =
+        leftCandidate === undefined
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(
+              leftCandidate.pair.spotify_started_at_epoch_ms - current.spotify_started_at_epoch_ms,
+            );
+      const rightDistance =
+        rightCandidate === undefined
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(
+              rightCandidate.pair.spotify_started_at_epoch_ms - current.spotify_started_at_epoch_ms,
+            );
+      if (leftDistance > nearestDistance && rightDistance > nearestDistance) break;
+      const candidate =
+        leftDistance < rightDistance ||
+        (leftDistance === rightDistance &&
+          (leftCandidate?.index ?? Number.POSITIVE_INFINITY) <
+            (rightCandidate?.index ?? Number.POSITIVE_INFINITY))
+          ? leftCandidate
+          : rightCandidate;
+      if (candidate === undefined) break;
+      if (candidate.index === leftCandidate?.index) left--;
+      else right++;
+      if (
+        candidate.pair.spotify_source_record_id !== current.spotify_source_record_id &&
+        candidate.pair.lastfm_source_record_id !== current.lastfm_source_record_id
+      ) {
+        nearest = candidate;
+        nearestDistance = Math.abs(
+          candidate.pair.spotify_started_at_epoch_ms - current.spotify_started_at_epoch_ms,
+        );
+      }
+    }
+    return nearest?.pair;
+  });
+}
+
+function orderingScore(
+  current: GeneratedPairRow,
+  neighbor: GeneratedPairRow | undefined,
+): number | null {
   if (neighbor === undefined) return null;
   const spotifyOrder = Math.sign(
     current.spotify_started_at_epoch_ms - neighbor.spotify_started_at_epoch_ms,

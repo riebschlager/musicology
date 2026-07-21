@@ -11,7 +11,11 @@ import {
 import { openSqliteConnection } from "../db/better-sqlite3.ts";
 import type { SqliteConnection } from "../db/connection.ts";
 import { getMigrationStatus, MigrationError } from "../db/migrations.ts";
+import { collapseExactDuplicateEvents, createCanonicalEvents } from "../identity/events.ts";
+import { resolveSourceIdentities } from "../identity/resolution.ts";
 import { applyReconciliationDecisions } from "../reconciliation/apply.ts";
+import { generateCrossSourceCandidates } from "../reconciliation/candidates.ts";
+import { calculateCrossSourceMatchFeatures } from "../reconciliation/features.ts";
 import { CROSS_SOURCE_DECISION_POLICY } from "../reconciliation/policy.ts";
 import {
   commandFailure,
@@ -26,6 +30,8 @@ import {
 const commandName = "reconcile";
 const migrationsDirectory = fileURLToPath(new URL("../../migrations/", import.meta.url));
 
+class DryRunRollback extends Error {}
+
 class DatabaseNotReadyError extends Error {
   constructor() {
     super("Database migrations must be current before reconciliation.");
@@ -37,17 +43,44 @@ export function runReconcileCommand(
   connection: SqliteConnection,
   options: { readonly dryRun?: boolean } = {},
 ): CommandResult<JsonObject> {
-  const summary = applyReconciliationDecisions(connection, options);
+  const dryRun = options.dryRun ?? false;
+  let summary: ReturnType<typeof applyReconciliationDecisions> | undefined;
+  let pipeline: JsonObject | undefined;
+  try {
+    connection.transaction(() => {
+      const identities = resolveSourceIdentities(connection);
+      const events = createCanonicalEvents(connection);
+      const duplicates = collapseExactDuplicateEvents(connection);
+      const candidates = generateCrossSourceCandidates(connection);
+      const features = calculateCrossSourceMatchFeatures(connection);
+      summary = applyReconciliationDecisions(connection, { dryRun: false });
+      pipeline = {
+        candidatePairs: candidates.inserted,
+        canonicalEvents: events.processed,
+        exactDuplicatesCollapsed:
+          duplicates.spotifyEventsCollapsed + duplicates.lastfmEventsCollapsed,
+        identitiesResolved: identities.resolved,
+        matchFeatures: features.inserted,
+      };
+      if (dryRun) throw new DryRunRollback();
+    });
+  } catch (error) {
+    if (!(error instanceof DryRunRollback)) throw error;
+  }
+  if (summary === undefined || pipeline === undefined) {
+    throw new Error("Reconciliation pipeline did not produce a summary");
+  }
   return commandSuccess(
     commandName,
-    summary.dryRun
+    dryRun
       ? "Reconciliation dry run completed without changing canonical data."
       : "Reconciliation decisions applied transactionally.",
     {
       autoAccepted: summary.autoAccepted,
-      dryRun: summary.dryRun,
+      dryRun,
       ignored: summary.ignored,
       policyRuleVersion: summary.policyRuleVersion,
+      pipeline,
       review: summary.review,
       skipped: summary.skipped,
       supersededAutomaticDecisions: summary.supersededAutomaticDecisions,

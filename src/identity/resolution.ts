@@ -351,6 +351,30 @@ export function resolveSourceIdentities(
           now,
         ]);
     }
+    // A trusted recording can legitimately have source evidence for a different trusted release
+    // (for example, an alternate edition). Keep the established track/release graph unchanged,
+    // but make the release-level strong-identifier disagreement explicit and auditable. This also
+    // records conflicts for resolutions created before a later source supplied its release ID.
+    conflicts += connection
+      .prepare(
+        `INSERT OR IGNORE INTO identity_resolution_conflict
+          (source_record_id, entity_type, strong_entity_id, conflicting_entity_id,
+           normalization_version)
+         SELECT resolution.source_record_id, 'release', identifier.entity_id, resolution.release_id,
+                ?
+           FROM source_identity_resolution AS resolution
+           JOIN lastfm_scrobble_occurrence AS occurrence
+             ON occurrence.source_record_id = resolution.source_record_id
+           JOIN lastfm_scrobble_source AS lastfm
+             ON lastfm.source_record_id = occurrence.lastfm_scrobble_source_record_id
+           JOIN music_identifier AS identifier
+             ON identifier.namespace = 'musicbrainz_release_id'
+            AND identifier.identifier_value = lastfm.release_musicbrainz_id
+          WHERE lastfm.release_musicbrainz_id IS NOT NULL
+            AND resolution.release_id IS NOT NULL
+            AND identifier.entity_id <> resolution.release_id`,
+      )
+      .run([MATCH_TEXT_NORMALIZATION_VERSION]).changes;
     return { processed: evidence.length, resolved: evidence.length, conflicts };
   });
 }

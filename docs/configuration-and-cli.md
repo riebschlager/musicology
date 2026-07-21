@@ -185,15 +185,19 @@ move or remove that private artifact deliberately before exporting a replacement
 
 ## Reconciliation
 
-After candidates and match features have been generated, apply the current conservative policy:
+Run the complete Phase 2 identity-and-reconciliation pipeline and apply the current conservative
+policy:
 
 ```sh
 pnpm reconcile --dry-run
 pnpm reconcile --json --rule-version cross-source-decision-policy-v1
 ```
 
-The dry run does not modify the database. A non-dry run performs candidate-state updates,
-decision-history writes, event supersession, and evidence-link moves in one transaction. Output is
-aggregate-only: policy version and counts of automatic accepts, reviews, ignores, and superseded
-automatic decisions; it never returns source display text, timestamps, paths, hashes, or raw
-records.
+The command resolves any unrepresented evidence, materializes canonical events, collapses exact
+within-source duplicates, generates bounded candidates, calculates match features, and applies the
+policy in one transaction. The dry run performs the same work inside a transaction that is rolled
+back, so it does not modify the database. A non-dry run performs candidate-state updates,
+decision-history writes, event supersession, and evidence-link moves atomically. Output is
+aggregate-only: stage counts, policy version, and counts of automatic accepts, reviews, ignores,
+and superseded automatic decisions; it never returns source display text, timestamps, paths,
+hashes, or raw records.
