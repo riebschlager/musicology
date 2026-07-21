@@ -41,6 +41,10 @@ Spotify timestamps are observed stop times. A canonical start may later be deriv
 `ms_played`, with `listening_event.time_basis = 'derived_start'`. The original stop time remains in
 `spotify_play_source`.
 
+Initial canonical events use `canonical-event-v1` in `reconciliation_rule_version` before any
+cross-source reconciliation policy exists. A source whose identity interpretation is explicitly
+unresolved receives an event with `event_status = 'unresolved'`; all others are initially `current`.
+
 ## Enforceable provenance
 
 `source_file` identifies exact bytes within a declared source type. A content hash is unique for a
