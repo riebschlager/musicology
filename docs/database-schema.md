@@ -5,6 +5,10 @@ ingest counters through `migrations/0002_add_ingest_lifecycle_counts.sql`, and P
 occurrence provenance through `migrations/0003_add_lastfm_occurrence_provenance.sql`.
 `migrations/0004_scope_source_file_hash_by_type.sql` scopes file-hash uniqueness to the declared
 source type so byte-identical files from different source formats retain independent registrations.
+`migrations/0005_add_identity_resolution.sql` adds versioned artist, release, and track aliases plus
+one current identity interpretation per source occurrence, including both resolution-rule and
+normalization versions. Strong-identifier/composite disagreements are retained as conflict rows;
+they never authorize an automatic merge.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately

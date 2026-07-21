@@ -168,6 +168,7 @@ describe("initial schema contract", () => {
         "genre_mapping",
         "genre_tag",
         "identity_decision",
+        "identity_resolution_conflict",
         "ingest_run",
         "lastfm_scrobble_occurrence",
         "lastfm_scrobble_source",
@@ -178,12 +179,15 @@ describe("initial schema contract", () => {
         "reconciliation_candidate",
         "rejected_source_record",
         "release",
+        "release_alias",
         "schema_migration",
         "source_file",
+        "source_identity_resolution",
         "source_record",
         "spotify_play_source",
         "sync_cursor",
         "track",
+        "track_alias",
       ]);
 
       assert.deepEqual(columns(connection, "spotify_play_source"), [
@@ -220,6 +224,16 @@ describe("initial schema contract", () => {
         "source_record_id",
         "lastfm_scrobble_source_record_id",
         "source_origin",
+      ]);
+      assert.deepEqual(columns(connection, "source_identity_resolution"), [
+        "source_record_id",
+        "artist_id",
+        "release_id",
+        "track_id",
+        "resolution_kind",
+        "resolution_rule_version",
+        "normalization_version",
+        "resolved_at_epoch_ms",
       ]);
       assert.deepEqual(columns(connection, "listening_event"), [
         "id",
@@ -432,6 +446,7 @@ describe("initial schema contract", () => {
           "add_ingest_lifecycle_counts",
           "add_lastfm_occurrence_provenance",
           "scope_source_file_hash_by_type",
+          "add_identity_resolution",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);
