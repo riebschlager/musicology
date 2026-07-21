@@ -26,6 +26,10 @@ Last.fm synchronization command must separately require both values at its own b
 must pass configured Last.fm values to the result renderer as redaction values before producing
 console output.
 
+The P3-01 API client boundary is documented in
+[`lastfm-api-client.md`](lastfm-api-client.md). It has no command yet and does not persist data,
+advance a cursor, or apply retry policy.
+
 ## Command results and exit codes
 
 Commands return the shared result contract in `src/cli/result.ts`: command name, success/error
