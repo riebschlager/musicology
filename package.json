@@ -13,6 +13,7 @@
     "build": "tsc --project tsconfig.build.json",
     "db:migrate": "node src/cli/db.ts migrate",
     "db:status": "node src/cli/db.ts status",
+    "export:reconciliation-calibration": "node src/cli/export-reconciliation-calibration.ts",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "import:lastfm-export": "node src/cli/import-lastfm-export.ts",

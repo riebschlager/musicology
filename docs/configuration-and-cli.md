@@ -148,3 +148,23 @@ pnpm report:coverage --json --compare-archive-baseline
 The comparison is opt-in, reports aggregate deviations without failing the command, and is not part
 of CI. Input paths and source display values are omitted; input hashes are included because they are
 the explicit evidence identity required by the report contract.
+
+## Reconciliation calibration sample
+
+After P2-06 candidate features have been generated, export a local labeling sample:
+
+```sh
+pnpm export:reconciliation-calibration
+pnpm export:reconciliation-calibration --json --per-stratum 50
+```
+
+The command requires a current, existing database and reads it without modifying it. It writes the
+fixed, Git-ignored file `reconciliation-calibration-sample.json` under `MUSICOLOGY_OUTPUTS_DIR`.
+The deterministic stratified sample uses a stable hash ranking within each policy stratum, avoiding
+source-ingestion-order bias while producing the same sample for unchanged candidates. It includes
+only local candidate/source-record IDs, feature scores,
+the policy's proposed band, and a null label placeholder. It excludes source display values,
+timestamps, paths, hashes, usernames, secrets, raw records, and all excluded source fields. Command
+output reports only aggregate metadata and the fixed filename. The export is a local review aid and
+must not be committed. To protect local labels, the command refuses to overwrite an existing sample;
+move or remove that private artifact deliberately before exporting a replacement.

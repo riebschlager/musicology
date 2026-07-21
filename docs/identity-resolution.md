@@ -60,3 +60,20 @@ higher-is-more-compatible, but it is not a merge policy: P2-07 calibrates thresh
 conflict rules before P2-08 can act on it. A Spotify play shorter than 30 seconds, or marked
 skipped, has a short-play score of 0; otherwise it has 1. Duration plausibility decreases linearly
 as timestamp distance approaches the larger of 30 seconds or the observed Spotify play duration.
+
+P2-07 defines `cross-source-decision-policy-v1`, which consumes only
+`cross-source-match-feature-v1`. Its policy artifact keeps the feature version, thresholds, and
+rationale together: confidence of at least 0.95 is eligible for automatic acceptance; 0.70 through
+0.949999 is review; lower confidence is ignored. A compatible strong identifier disagreement and
+any competing generated candidate override those bands to review, so neither case can auto-merge.
+Changing feature definitions, a threshold, a hard rule, or the rationale requires a new decision
+policy version.
+
+Use `pnpm export:reconciliation-calibration` to create a deterministic, stratified local sample in
+`data/outputs/reconciliation-calibration-sample.json`; candidates within each stratum are selected
+by a stable hash ranking rather than ingestion order, and `--per-stratum` controls the 1–1000 sample
+limit per policy stratum. The JSON contains candidate and source-record IDs plus numeric feature
+values and empty labels, but no display text, timestamps, paths, hashes, accounts, raw records, or
+excluded fields. It is ignored by Git. Label the local sample and retain the resulting aggregate
+calibration rationale without committing any private candidate export. P2-08 will apply this policy;
+this task does not mutate candidate states or canonical events.
