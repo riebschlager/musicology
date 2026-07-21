@@ -19,5 +19,12 @@ occurrence. Spotify events retain their observed stop and duration as a `derived
 Last.fm scrobbles are `observed_start` instants with no inferred duration. Short and skipped Spotify
 plays are retained. A `new_unresolved` identity resolution creates an event with `event_status =
 'unresolved'`, so it remains visible rather than being dropped. Each event is linked to its source
-record as `primary` evidence. Exact duplicate source rows intentionally remain separate initial
-events until P2-04 collapses them at the event layer while retaining every source link.
+record as `primary` evidence.
+
+P2-04 then collapses only exact within-source equivalents at the event layer. Spotify rows sharing
+the complete approved source fingerprint link to the lowest-ID initial event, with subsequent rows
+recorded as `exact_duplicate`; their now-unlinked events become `superseded`. Last.fm occurrences
+that already share one fingerprint-unique `lastfm_scrobble_source` payload follow the same rule,
+so a future API occurrence can reuse the export event without creating another canonical listen.
+No source record or source-specific evidence row is deleted. Same-time Spotify records with
+different approved fields have different fingerprints and remain separate events.

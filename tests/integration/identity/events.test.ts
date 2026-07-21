@@ -6,6 +6,7 @@ import { applyMigrations } from "../../../src/db/migrations.ts";
 import { withTemporarySqliteDatabase } from "../../../src/db/temporary.ts";
 import {
   CANONICAL_EVENT_RULE_VERSION,
+  collapseExactDuplicateEvents,
   createCanonicalEvents,
 } from "../../../src/identity/events.ts";
 import { resolveSourceIdentities } from "../../../src/identity/resolution.ts";
@@ -27,6 +28,8 @@ function insertLastfmSource(
   recordingId: string | null,
   artistName = "Synthetic Artist",
   trackName = "Synthetic Track",
+  evidenceSourceRecordId = id,
+  occurrenceOrigin: "export" | "api" = "export",
 ): void {
   insertRun(connection);
   connection
@@ -34,26 +37,28 @@ function insertLastfmSource(
       "INSERT INTO source_record (id, source_kind, ingest_run_id, accepted_at_epoch_ms) VALUES (?, 'lastfm', 1, 1)",
     )
     .run([id]);
+  if (evidenceSourceRecordId === id) {
+    connection
+      .prepare(
+        `INSERT INTO lastfm_scrobble_source
+          (source_record_id, source_origin, scrobbled_at_epoch_ms, artist_name, track_name,
+           recording_musicbrainz_id, source_fingerprint_sha256)
+         VALUES (?, 'export', ?, ?, ?, ?, ?)`,
+      )
+      .run([
+        id,
+        id * 1_000,
+        artistName,
+        trackName,
+        recordingId,
+        `${String(id).padStart(2, "0")}${hash.slice(2)}`,
+      ]);
+  }
   connection
     .prepare(
-      `INSERT INTO lastfm_scrobble_source
-        (source_record_id, source_origin, scrobbled_at_epoch_ms, artist_name, track_name,
-         recording_musicbrainz_id, source_fingerprint_sha256)
-       VALUES (?, 'export', ?, ?, ?, ?, ?)`,
+      "INSERT INTO lastfm_scrobble_occurrence (source_record_id, lastfm_scrobble_source_record_id, source_origin) VALUES (?, ?, ?)",
     )
-    .run([
-      id,
-      id * 1_000,
-      artistName,
-      trackName,
-      recordingId,
-      `${String(id).padStart(2, "0")}${hash.slice(2)}`,
-    ]);
-  connection
-    .prepare(
-      "INSERT INTO lastfm_scrobble_occurrence (source_record_id, lastfm_scrobble_source_record_id, source_origin) VALUES (?, ?, 'export')",
-    )
-    .run([id, id]);
+    .run([id, evidenceSourceRecordId, occurrenceOrigin]);
 }
 
 function insertSpotifySource(
@@ -211,6 +216,195 @@ describe("canonical event creation", () => {
           { listening_event_id: 1, source_record_id: 1, evidence_role: "primary" },
           { listening_event_id: 2, source_record_id: 2, evidence_role: "primary" },
         ],
+      );
+    });
+  });
+});
+
+describe("exact duplicate event collapse", () => {
+  it("links exact Spotify duplicate evidence to one event without deleting source rows", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      const duplicateFingerprint = "b".repeat(64);
+      insertSpotifySource(connection, 1, 250, duplicateFingerprint);
+      insertSpotifySource(connection, 2, 250, duplicateFingerprint);
+      resolveSourceIdentities(connection, { now: () => 3 });
+      createCanonicalEvents(connection);
+
+      assert.deepEqual(collapseExactDuplicateEvents(connection), {
+        spotifyEventsCollapsed: 1,
+        lastfmEventsCollapsed: 0,
+      });
+      assert.deepEqual(collapseExactDuplicateEvents(connection), {
+        spotifyEventsCollapsed: 0,
+        lastfmEventsCollapsed: 0,
+      });
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT link.listening_event_id, link.source_record_id, link.evidence_role
+               FROM listening_event_source AS link
+              ORDER BY link.source_record_id`,
+          )
+          .all(),
+        [
+          { listening_event_id: 1, source_record_id: 1, evidence_role: "primary" },
+          { listening_event_id: 1, source_record_id: 2, evidence_role: "exact_duplicate" },
+        ],
+      );
+      assert.deepEqual(
+        connection
+          .prepare(
+            "SELECT id, event_status, superseded_by_event_id FROM listening_event ORDER BY id",
+          )
+          .all(),
+        [
+          { id: 1, event_status: "current", superseded_by_event_id: null },
+          { id: 2, event_status: "superseded", superseded_by_event_id: 1 },
+        ],
+      );
+      assert.equal(connection.prepare("SELECT count(*) AS count FROM source_record").get()?.count, 2);
+      assert.equal(connection.checkIntegrity().ok, true);
+    });
+  });
+
+  it("rolls back all link and event changes when collapse fails partway through", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      const duplicateFingerprint = "b".repeat(64);
+      insertSpotifySource(connection, 1, 250, duplicateFingerprint);
+      insertSpotifySource(connection, 2, 250, duplicateFingerprint);
+      insertSpotifySource(connection, 3, 250, duplicateFingerprint);
+      resolveSourceIdentities(connection, { now: () => 3 });
+      createCanonicalEvents(connection);
+      connection.execute(
+        `CREATE TRIGGER reject_third_duplicate_link
+           BEFORE UPDATE OF listening_event_id ON listening_event_source
+           WHEN OLD.source_record_id = 3
+         BEGIN
+           SELECT RAISE(ABORT, 'synthetic duplicate collapse failure');
+         END`,
+      );
+
+      assert.throws(
+        () => collapseExactDuplicateEvents(connection),
+        /synthetic duplicate collapse failure/,
+      );
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT listening_event_id, source_record_id, evidence_role
+               FROM listening_event_source
+              ORDER BY source_record_id`,
+          )
+          .all(),
+        [
+          { listening_event_id: 1, source_record_id: 1, evidence_role: "primary" },
+          { listening_event_id: 2, source_record_id: 2, evidence_role: "primary" },
+          { listening_event_id: 3, source_record_id: 3, evidence_role: "primary" },
+        ],
+      );
+      assert.deepEqual(
+        connection
+          .prepare(
+            "SELECT id, event_status, superseded_by_event_id FROM listening_event ORDER BY id",
+          )
+          .all(),
+        [
+          { id: 1, event_status: "current", superseded_by_event_id: null },
+          { id: 2, event_status: "current", superseded_by_event_id: null },
+          { id: 3, event_status: "current", superseded_by_event_id: null },
+        ],
+      );
+      assert.equal(connection.checkIntegrity().ok, true);
+    });
+  });
+
+  it("coalesces Last.fm export/API occurrences that share one stable evidence fingerprint", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      insertLastfmSource(connection, 1, "recording-1");
+      insertLastfmSource(
+        connection,
+        2,
+        "recording-1",
+        "Synthetic Artist",
+        "Synthetic Track",
+        1,
+        "api",
+      );
+      resolveSourceIdentities(connection, { now: () => 3 });
+      createCanonicalEvents(connection);
+
+      assert.deepEqual(collapseExactDuplicateEvents(connection), {
+        spotifyEventsCollapsed: 0,
+        lastfmEventsCollapsed: 1,
+      });
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT link.listening_event_id, link.source_record_id, link.evidence_role
+               FROM listening_event_source AS link
+              ORDER BY link.source_record_id`,
+          )
+          .all(),
+        [
+          { listening_event_id: 1, source_record_id: 1, evidence_role: "primary" },
+          { listening_event_id: 1, source_record_id: 2, evidence_role: "exact_duplicate" },
+        ],
+      );
+      assert.equal(connection.prepare("SELECT count(*) AS count FROM source_record").get()?.count, 2);
+      assert.equal(connection.checkIntegrity().ok, true);
+    });
+  });
+
+  it("keeps repeated Last.fm listens with distinct fingerprints as separate events", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      insertLastfmSource(connection, 1, "recording-1");
+      insertLastfmSource(connection, 2, "recording-1");
+      resolveSourceIdentities(connection, { now: () => 3 });
+      createCanonicalEvents(connection);
+
+      assert.deepEqual(collapseExactDuplicateEvents(connection), {
+        spotifyEventsCollapsed: 0,
+        lastfmEventsCollapsed: 0,
+      });
+      assert.deepEqual(
+        connection
+          .prepare(
+            `SELECT link.listening_event_id, link.source_record_id, link.evidence_role
+               FROM listening_event_source AS link
+              ORDER BY link.source_record_id`,
+          )
+          .all(),
+        [
+          { listening_event_id: 1, source_record_id: 1, evidence_role: "primary" },
+          { listening_event_id: 2, source_record_id: 2, evidence_role: "primary" },
+        ],
+      );
+      assert.equal(connection.checkIntegrity().ok, true);
+    });
+  });
+
+  it("does not collapse distinct same-time Spotify listens with different approved fields", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      insertSpotifySource(connection, 1, 250, "b".repeat(64));
+      insertSpotifySource(connection, 2, 251, "c".repeat(64));
+      resolveSourceIdentities(connection, { now: () => 3 });
+      createCanonicalEvents(connection);
+
+      assert.deepEqual(collapseExactDuplicateEvents(connection), {
+        spotifyEventsCollapsed: 0,
+        lastfmEventsCollapsed: 0,
+      });
+      assert.equal(connection.prepare("SELECT count(*) AS count FROM listening_event").get()?.count, 2);
+      assert.equal(
+        connection
+          .prepare("SELECT count(*) AS count FROM listening_event_source")
+          .get()?.count,
+        2,
       );
     });
   });

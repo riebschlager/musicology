@@ -57,8 +57,9 @@ tables retain their distinct, approved fields. Exact Spotify duplicates may shar
 but remain separate source rows. A complete Last.fm source fingerprint identifies one unique
 `lastfm_scrobble_source` payload. Every accepted export occurrence—including an equivalent
 fingerprint—has a separate `source_record` linked through `lastfm_scrobble_occurrence`, preserving
-its file, ordinal, and origin while avoiding duplicate payload storage. Canonical duplicate
-interpretation and export/API overlap remain later work.
+its file, ordinal, and origin while avoiding duplicate payload storage. P2-04 maps each such exact
+duplicate group to one current event and retains every source link; redundant initial events are
+marked superseded rather than deleted. Cross-source reconciliation remains later work.
 
 External identifiers attach to a `music_entity` parent shared by artists, releases, and tracks.
 This likewise avoids an unenforceable polymorphic identifier reference. Display text remains in
