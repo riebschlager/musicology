@@ -10,6 +10,7 @@ import {
   type LastfmHttpRequest,
   type LastfmHttpResponse,
   type LastfmHttpTransport,
+  type LastfmRecentTracksPage,
 } from "../../../src/lastfm/client.ts";
 
 const secret = "synthetic-api-secret-not-for-output";
@@ -27,6 +28,13 @@ function completedTrack(
     name: "Synthetic Track",
     ...overrides,
   };
+}
+
+function completedTrackPage(
+  count: number,
+  overrides: Readonly<Record<string, unknown>> = {},
+): Record<string, unknown>[] {
+  return Array.from({ length: count }, () => completedTrack(overrides));
 }
 
 function pagePayload(
@@ -69,6 +77,15 @@ function transportReturning(value: LastfmHttpResponse): {
 
 function client(transport: LastfmHttpTransport): LastfmClient {
   return new LastfmClient({ apiKey: secret, username }, { transport });
+}
+
+async function collectPages(
+  target: LastfmClient,
+  window: { readonly fromEpochMs: number; readonly toEpochMs?: number },
+): Promise<LastfmRecentTracksPage[]> {
+  const pages: LastfmRecentTracksPage[] = [];
+  for await (const page of target.getRecentTracksPages(window)) pages.push(page);
+  return pages;
 }
 
 async function expectClientError(
@@ -132,6 +149,43 @@ describe("Last.fm API client", () => {
 
     assert.equal(result.ignoredNowPlayingCount, 1);
     assert.equal(result.completedTracks.length, 1);
+  });
+
+  it("allows one currently playing item alongside a full completed page", async () => {
+    const stub = transportReturning(
+      response(
+        200,
+        pagePayload(
+          [
+            { "@attr": { nowplaying: "true" }, artist: { "#text": "Live" }, name: "Now" },
+            ...completedTrackPage(200),
+          ],
+          { total: "200", totalPages: "1" },
+        ),
+      ),
+    );
+
+    const result = await client(stub.transport).getRecentTracksPage({ fromEpochMs: 0 });
+
+    assert.equal(result.ignoredNowPlayingCount, 1);
+    assert.equal(result.completedTracks.length, 200);
+  });
+
+  it("rejects multiple currently playing items", async () => {
+    const stub = transportReturning(
+      response(
+        200,
+        pagePayload([
+          { "@attr": { nowplaying: "true" }, artist: { "#text": "Live" }, name: "Now" },
+          { "@attr": { nowplaying: "true" }, artist: { "#text": "Again" }, name: "Now" },
+        ]),
+      ),
+    );
+
+    await expectClientError(
+      () => client(stub.transport).getRecentTracksPage({ fromEpochMs: 0 }),
+      LastfmClientErrorCategory.InvalidResponse,
+    );
   });
 
   it("rejects malformed HTTP JSON and completed-track payloads", async () => {
@@ -293,5 +347,169 @@ describe("Last.fm API client", () => {
   it("serializes UTC millisecond instants as inclusive Last.fm Unix-second boundaries", () => {
     assert.equal(serializeLastfmUtcBoundary(Date.parse("2025-12-31T23:59:59.999Z")), "1767225599");
     assert.equal(serializeLastfmUtcBoundary(Date.parse("2026-01-01T00:00:00.000Z")), "1767225600");
+  });
+
+  it("returns a one-page bounded window with Last.fm's fixed page limit", async () => {
+    const stub = transportReturning(response(200, pagePayload([completedTrack()])));
+    const result = await collectPages(client(stub.transport), {
+      fromEpochMs: 1_767_225_600_000,
+      toEpochMs: 1_767_312_000_000,
+    });
+
+    assert.equal(result.length, 1);
+    assert.equal(stub.requests.length, 1);
+    const requestedUrl = new URL(stub.requests[0]?.url ?? "");
+    assert.equal(requestedUrl.searchParams.get("page"), "1");
+    assert.equal(requestedUrl.searchParams.get("limit"), "200");
+    assert.equal(requestedUrl.searchParams.get("from"), "1767225600");
+    assert.equal(requestedUrl.searchParams.get("to"), "1767312000");
+  });
+
+  it("follows stable pagination metadata and yields each page incrementally", async () => {
+    const requests: LastfmHttpRequest[] = [];
+    const pages = [
+      response(
+        200,
+        pagePayload(completedTrackPage(200, { name: "First" }), {
+          total: "201",
+          totalPages: "2",
+        }),
+      ),
+      response(
+        200,
+        pagePayload([completedTrack({ name: "Second" })], {
+          page: "2",
+          total: "201",
+          totalPages: "2",
+        }),
+      ),
+    ];
+    const paginatedClient = client({
+      request: async (request) => {
+        requests.push(request);
+        const next = pages.shift();
+        assert.ok(next !== undefined);
+        return next;
+      },
+    });
+
+    const iterator = paginatedClient.getRecentTracksPages({ fromEpochMs: 0 });
+    const first = await iterator.next();
+    assert.equal(first.value?.completedTracks[0]?.trackName, "First");
+    assert.equal(requests.length, 1);
+    const second = await iterator.next();
+    assert.equal(second.value?.completedTracks[0]?.trackName, "Second");
+    assert.equal(requests.length, 2);
+    assert.equal(new URL(requests[1]?.url ?? "").searchParams.get("page"), "2");
+    assert.equal((await iterator.next()).done, true);
+  });
+
+  it("returns the validated empty page for an empty bounded window", async () => {
+    const stub = transportReturning(response(200, pagePayload([])));
+    const result = await collectPages(client(stub.transport), { fromEpochMs: 0, toEpochMs: 0 });
+
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0]?.pagination, { page: 1, perPage: 200, total: 0, totalPages: 0 });
+    assert.equal(stub.requests.length, 1);
+  });
+
+  it("preserves exact inclusive window boundaries across paginated requests", async () => {
+    const requests: LastfmHttpRequest[] = [];
+    const pages = [
+      response(
+        200,
+        pagePayload(completedTrackPage(200, { date: { uts: "100" } }), {
+          total: "201",
+          totalPages: "2",
+        }),
+      ),
+      response(
+        200,
+        pagePayload([completedTrack({ date: { uts: "200" } })], {
+          page: "2",
+          total: "201",
+          totalPages: "2",
+        }),
+      ),
+    ];
+    const result = await collectPages(
+      client({
+        request: async (request) => {
+          requests.push(request);
+          const next = pages.shift();
+          assert.ok(next !== undefined);
+          return next;
+        },
+      }),
+      { fromEpochMs: 100_000, toEpochMs: 200_000 },
+    );
+
+    assert.deepEqual(
+      result.map((page) => page.completedTracks[0]?.scrobbledAtEpochMs),
+      [100_000, 200_000],
+    );
+    for (const request of requests) {
+      const url = new URL(request.url);
+      assert.equal(url.searchParams.get("from"), "100");
+      assert.equal(url.searchParams.get("to"), "200");
+      assert.equal(url.searchParams.get("limit"), "200");
+    }
+  });
+
+  it("fails safely when the reported page count changes after the first page", async () => {
+    const pages = [
+      response(200, pagePayload([completedTrack()], { total: "201", totalPages: "2" })),
+      response(200, pagePayload([completedTrack()], { page: "2", total: "401", totalPages: "3" })),
+    ];
+    const paginatedClient = client({
+      request: async () => {
+        const next = pages.shift();
+        assert.ok(next !== undefined);
+        return next;
+      },
+    });
+
+    await expectClientError(
+      () => collectPages(paginatedClient, { fromEpochMs: 0 }),
+      LastfmClientErrorCategory.InvalidResponse,
+    );
+  });
+
+  it("fails safely when a page does not contain the records promised by stable metadata", async () => {
+    const pages = [
+      response(200, pagePayload(completedTrackPage(200), { total: "201", totalPages: "2" })),
+      response(200, pagePayload([], { page: "2", total: "201", totalPages: "2" })),
+    ];
+    const paginatedClient = client({
+      request: async () => {
+        const next = pages.shift();
+        assert.ok(next !== undefined);
+        return next;
+      },
+    });
+
+    await expectClientError(
+      () => collectPages(paginatedClient, { fromEpochMs: 0 }),
+      LastfmClientErrorCategory.InvalidResponse,
+    );
+  });
+
+  it("fails safely when a response repeats a page instead of advancing", async () => {
+    const pages = [
+      response(200, pagePayload([completedTrack()], { total: "201", totalPages: "2" })),
+      response(200, pagePayload([completedTrack()], { page: "1", total: "201", totalPages: "2" })),
+    ];
+    const paginatedClient = client({
+      request: async () => {
+        const next = pages.shift();
+        assert.ok(next !== undefined);
+        return next;
+      },
+    });
+
+    await expectClientError(
+      () => collectPages(paginatedClient, { fromEpochMs: 0 }),
+      LastfmClientErrorCategory.InvalidResponse,
+    );
   });
 });

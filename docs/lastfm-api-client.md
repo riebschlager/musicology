@@ -8,9 +8,14 @@ included in client errors.
 `getRecentTracksPage` uses UTC epoch-millisecond input boundaries and serializes them as Last.fm's
 inclusive Unix-second `from` and optional `to` parameters. It validates successful HTTP JSON at
 runtime, projects only approved completed-scrobble fields, and ignores `@attr.nowplaying` entries
-before requiring a completion timestamp. Its returned pagination metadata is validated but no
-multi-page loop, retry policy, persistence, or cursor update is implemented until their respective
-Phase 3 tasks.
+before requiring a completion timestamp. A page may include one current-playing item in addition
+to its completed-scrobble limit. `getRecentTracksPages` requests each page with Last.fm's
+maximum limit of 200, keeping the explicit inclusive `from` and optional `to` boundaries constant.
+It yields projected pages incrementally and stops only after the validated total-page bound is
+complete. It rejects a response whose page number repeats or differs from the requested page, or
+whose page count, total, or per-page metadata changes during the sequence, or whose completed
+records do not match the stable pagination metadata. Retry policy,
+persistence, and cursor updates remain deferred to their respective Phase 3 tasks.
 
 The client has an injectable transport and clock for deterministic tests. A request timeout is
 enabled by default; timeout, transport, HTTP, Last.fm API, invalid-request, and invalid-response

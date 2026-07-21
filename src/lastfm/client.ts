@@ -37,6 +37,12 @@ export interface LastfmRecentTracksRequest {
   readonly toEpochMs?: number;
 }
 
+/** An inclusive UTC window used when fetching every validated page of recent tracks. */
+export interface LastfmRecentTracksWindow {
+  readonly fromEpochMs: number;
+  readonly toEpochMs?: number;
+}
+
 export interface LastfmCompletedTrack {
   readonly albumName: string | null;
   readonly artistMusicbrainzId: string | null;
@@ -183,6 +189,55 @@ export class LastfmClient {
       this.clock.clearTimeout(timeout);
     }
   }
+
+  /**
+   * Fetches a bounded recent-track window one validated page at a time.
+   *
+   * The generator intentionally yields each projected page before requesting the next one so a
+   * caller can persist or otherwise consume it without retaining response bodies or all tracks.
+   */
+  async *getRecentTracksPages(
+    window: LastfmRecentTracksWindow,
+  ): AsyncGenerator<LastfmRecentTracksPage> {
+    let expectedPagination: Omit<LastfmPaginationMetadata, "page"> | undefined;
+    const seenPages = new Set<number>();
+    let requestedPage = 1;
+
+    while (true) {
+      const page = await this.getRecentTracksPage({
+        fromEpochMs: window.fromEpochMs,
+        limit: 200,
+        page: requestedPage,
+        ...(window.toEpochMs === undefined ? {} : { toEpochMs: window.toEpochMs }),
+      });
+      const { pagination } = page;
+
+      if (pagination.page !== requestedPage || seenPages.has(pagination.page)) {
+        throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
+      }
+      seenPages.add(pagination.page);
+
+      const reportedPagination = {
+        perPage: pagination.perPage,
+        total: pagination.total,
+        totalPages: pagination.totalPages,
+      };
+      if (expectedPagination === undefined) {
+        expectedPagination = reportedPagination;
+      } else if (!samePagination(expectedPagination, reportedPagination)) {
+        throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
+      }
+
+      if (page.completedTracks.length !== expectedCompletedTrackCount(pagination)) {
+        throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
+      }
+
+      yield page;
+
+      if (requestedPage === pagination.totalPages || pagination.totalPages === 0) return;
+      requestedPage += 1;
+    }
+  }
 }
 
 /** Converts the canonical UTC instant representation to Last.fm's inclusive Unix-second boundary. */
@@ -236,7 +291,7 @@ function parseRecentTracksPayload(payload: unknown): LastfmRecentTracksPage {
     throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
   }
   const pagination = parsePagination(recentTracks["@attr"]);
-  if (recentTracks.track.length > pagination.perPage) {
+  if (recentTracks.track.length > pagination.perPage + 1) {
     throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
   }
 
@@ -249,6 +304,9 @@ function parseRecentTracksPayload(payload: unknown): LastfmRecentTracksPage {
     } else {
       completedTracks.push(parsed);
     }
+  }
+  if (completedTracks.length > pagination.perPage || ignoredNowPlayingCount > 1) {
+    throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
   }
   return { completedTracks, ignoredNowPlayingCount, pagination };
 }
@@ -275,6 +333,23 @@ function parsePagination(value: unknown): LastfmPaginationMetadata {
     throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
   }
   return pagination;
+}
+
+function samePagination(
+  left: Omit<LastfmPaginationMetadata, "page">,
+  right: Omit<LastfmPaginationMetadata, "page">,
+): boolean {
+  return (
+    left.perPage === right.perPage &&
+    left.total === right.total &&
+    left.totalPages === right.totalPages
+  );
+}
+
+function expectedCompletedTrackCount(pagination: LastfmPaginationMetadata): number {
+  if (pagination.totalPages === 0) return 0;
+  if (pagination.page < pagination.totalPages) return pagination.perPage;
+  return pagination.total - (pagination.page - 1) * pagination.perPage;
 }
 
 function parseTrack(value: unknown): LastfmCompletedTrack | "now_playing" {
