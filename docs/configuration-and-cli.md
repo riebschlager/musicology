@@ -114,6 +114,19 @@ SQLite integrity and foreign-key checks. Errors identify only safe database IDs,
 invariant names; they never return paths, display text, hashes, stored diagnostic text, or raw source
 records.
 
+## Manual reconciliation review
+
+```sh
+pnpm review:decisions
+pnpm review:decisions --json --import path/to/manual-decisions.json
+```
+
+The export writes the fixed ignored `manual-review-decisions.json` under `MUSICOLOGY_OUTPUTS_DIR`
+and refuses to overwrite it. Imports validate all `manual-decisions-v1` references, create a
+SQLite-consistent backup beside the database before a non-empty bulk import, and apply every
+decision transactionally. Command output reports only aggregate counts and the backup filename; it
+never echoes artifact contents or paths.
+
 The aggregate archive observations documented on 2026-07-17 are comparison baselines, not database
 constraints. Differences appear as `archive_baseline_deviation` findings and do not make an
 otherwise valid database fail. A changed or missing file at a registered path is an invariant error

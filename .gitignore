@@ -7,6 +7,7 @@ data/database/*
 !data/database/.gitkeep
 data/outputs/*
 !data/outputs/.gitkeep
+manual-review-decisions.json
 
 # Environment files may contain secrets
 .env

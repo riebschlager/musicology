@@ -88,3 +88,25 @@ pending for P2-09, and low-confidence pairs are retained as automatically ignore
 Each applied decision records the policy version and safe rationale in `reconciliation_decision`.
 If a later policy is applied to the same feature candidate, any active automatic merge is restored
 first and the prior decision is marked superseded, preserving a decision lineage.
+
+## Manual review decisions
+
+P2-09 defines the portable `manual-decisions-v1` JSON artifact. `pnpm review:decisions` writes the
+ignored local `data/outputs/manual-review-decisions.json` candidate export. It contains only
+rebuild-stable source references (source-file content hash, ordinal, and source kind), candidate
+state, and numeric feature values; it excludes display text, timestamps, paths, raw records,
+account data, secrets, and excluded fields. Imports use fixed reason codes rather than free-form
+notes. Re-importing an identical decision is a no-op; malformed artifacts, altered duplicate IDs,
+and stale references fail before any decision is written.
+
+Manual candidate accepts/rejects take precedence over subsequent automatic policy applications.
+Accepting preserves the automatic reconciler's evidence-link semantics; rejecting restores a prior
+automatic or manual merge when applicable. Identity merges are directed: the `subject` remains the
+canonical identity and the `object` is temporarily reinterpreted as it. The importer snapshots every
+affected source interpretation and track relationship, retains identifier ownership, and follows an
+active merge for future automatic resolution. A split must name that active directed merge and
+restores its snapshots; it cannot silently split a canonical event that is shared with unrelated
+source evidence. Merge and split directives remain in the auditable `identity_decision` lineage.
+Artist aliases also become active manual aliases for future identity resolution. Release and track
+aliases remain auditable portable directives but do not participate in automatic matching until a
+future identity-resolution rule explicitly supports them.

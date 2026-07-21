@@ -333,6 +333,11 @@ const CANDIDATES_SQL = `
      AND prior.decision_state = 'active'
    WHERE candidate.rule_version = @featureRuleVersion
      AND current.id IS NULL
+     AND NOT EXISTS (
+       SELECT 1
+         FROM manual_reconciliation_decision AS manual
+        WHERE manual.reconciliation_candidate_id = candidate.id
+     )
    ORDER BY candidate.id
 `;
 

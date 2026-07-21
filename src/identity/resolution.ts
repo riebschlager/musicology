@@ -54,6 +54,36 @@ function findIdentifier(
     )
     .get([namespace, value])?.id;
 }
+function followActiveManualMerges(
+  connection: SqliteConnection,
+  entityType: "artist" | "release" | "track",
+  entityId: number | undefined,
+): number | undefined {
+  let resolved = entityId;
+  const visited = new Set<number>();
+  while (resolved !== undefined && !visited.has(resolved)) {
+    visited.add(resolved);
+    const merge = connection
+      .prepare<IdRow>(
+        `SELECT decision.subject_entity_id AS id
+           FROM identity_decision AS decision
+           JOIN music_entity AS subject ON subject.id = decision.subject_entity_id
+          WHERE decision.decision_type = 'merge'
+            AND decision.object_entity_id = ?
+            AND subject.entity_type = ?
+            AND NOT EXISTS (
+              SELECT 1 FROM identity_decision AS superseding
+               WHERE superseding.supersedes_decision_id = decision.id
+            )
+          ORDER BY decision.id DESC
+          LIMIT 1`,
+      )
+      .get([resolved, entityType])?.id;
+    if (merge === undefined) return resolved;
+    resolved = merge;
+  }
+  return resolved;
+}
 function addIdentifier(
   connection: SqliteConnection,
   entityId: number,
@@ -138,20 +168,28 @@ export function resolveSourceIdentities(
       if (artistNorm === null || trackNorm === null) {
         throw new Error("Accepted source evidence has an empty identity display value");
       }
-      const strongArtist = findIdentifier(
+      const strongArtist = followActiveManualMerges(
         connection,
-        "musicbrainz_artist_id",
-        row.artist_musicbrainz_id,
+        "artist",
+        findIdentifier(connection, "musicbrainz_artist_id", row.artist_musicbrainz_id),
       );
-      const manualAliasArtist = uniqueId(
+      const manualAliasArtist = followActiveManualMerges(
         connection,
-        "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'manual'",
-        [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
+        "artist",
+        uniqueId(
+          connection,
+          "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'manual'",
+          [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
+        ),
       );
-      const sourceAliasArtist = uniqueId(
+      const sourceAliasArtist = followActiveManualMerges(
         connection,
-        "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'source'",
-        [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
+        "artist",
+        uniqueId(
+          connection,
+          "SELECT DISTINCT artist_id AS id FROM artist_alias WHERE normalized_alias = ? AND normalization_version = ? AND alias_source = 'source'",
+          [artistNorm, MATCH_TEXT_NORMALIZATION_VERSION],
+        ),
       );
       const aliasArtist = manualAliasArtist ?? sourceAliasArtist;
       let artistId = strongArtist ?? aliasArtist;
@@ -188,15 +226,27 @@ export function resolveSourceIdentities(
         row.source_record_id,
       );
       const strongTrackIds = [
-        findIdentifier(connection, "spotify_track_uri", row.spotify_track_uri),
-        findIdentifier(connection, "musicbrainz_recording_id", row.recording_musicbrainz_id),
+        followActiveManualMerges(
+          connection,
+          "track",
+          findIdentifier(connection, "spotify_track_uri", row.spotify_track_uri),
+        ),
+        followActiveManualMerges(
+          connection,
+          "track",
+          findIdentifier(connection, "musicbrainz_recording_id", row.recording_musicbrainz_id),
+        ),
       ].filter((id): id is number => id !== undefined);
       const strongTrack = [...new Set(strongTrackIds)];
       let trackId = strongTrack.length === 1 ? strongTrack[0] : undefined;
-      const composite = uniqueId(
+      const composite = followActiveManualMerges(
         connection,
-        `SELECT DISTINCT track.id FROM track JOIN track_alias ON track_alias.track_id=track.id LEFT JOIN release_alias ON release_alias.release_id=track.release_id WHERE track.artist_id=? AND track_alias.normalized_alias=? AND track_alias.normalization_version=? AND ((? IS NULL AND track.release_id IS NULL) OR release_alias.normalized_alias=?)`,
-        [artistId, trackNorm, MATCH_TEXT_NORMALIZATION_VERSION, albumNorm, albumNorm],
+        "track",
+        uniqueId(
+          connection,
+          `SELECT DISTINCT track.id FROM track JOIN track_alias ON track_alias.track_id=track.id LEFT JOIN release_alias ON release_alias.release_id=track.release_id WHERE track.artist_id=? AND track_alias.normalized_alias=? AND track_alias.normalization_version=? AND ((? IS NULL AND track.release_id IS NULL) OR release_alias.normalized_alias=?)`,
+          [artistId, trackNorm, MATCH_TEXT_NORMALIZATION_VERSION, albumNorm, albumNorm],
+        ),
       );
       if (trackId !== undefined) {
         kind = "trusted_identifier";
@@ -228,10 +278,10 @@ export function resolveSourceIdentities(
         kind = "conservative_composite";
       }
       if (trackId === undefined) {
-        releaseId = findIdentifier(
+        releaseId = followActiveManualMerges(
           connection,
-          "musicbrainz_release_id",
-          row.release_musicbrainz_id,
+          "release",
+          findIdentifier(connection, "musicbrainz_release_id", row.release_musicbrainz_id),
         );
         if (releaseId === undefined && row.album_name !== null)
           releaseId = createRelease(connection, row.album_name, now);

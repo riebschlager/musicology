@@ -175,6 +175,11 @@ describe("initial schema contract", () => {
         "lastfm_scrobble_source",
         "listening_event",
         "listening_event_source",
+        "manual_decision_artifact",
+        "manual_identity_decision",
+        "manual_identity_resolution_override",
+        "manual_identity_track_override",
+        "manual_reconciliation_decision",
         "music_entity",
         "music_identifier",
         "reconciliation_candidate",
@@ -311,6 +316,44 @@ describe("initial schema contract", () => {
         "superseded_by_decision_id",
         "rationale",
       ]);
+      assert.deepEqual(columns(connection, "manual_decision_artifact"), [
+        "decision_key",
+        "artifact_version",
+        "decision_type",
+        "payload_json",
+        "imported_at_epoch_ms",
+      ]);
+      assert.deepEqual(columns(connection, "manual_identity_decision"), [
+        "decision_key",
+        "identity_decision_id",
+        "subject_source_record_id",
+        "object_source_record_id",
+      ]);
+      assert.deepEqual(columns(connection, "manual_reconciliation_decision"), [
+        "decision_key",
+        "reconciliation_candidate_id",
+        "decision",
+        "source_listening_event_id",
+        "target_listening_event_id",
+        "source_event_status",
+      ]);
+      assert.deepEqual(columns(connection, "manual_identity_resolution_override"), [
+        "manual_decision_key",
+        "source_record_id",
+        "artist_id",
+        "release_id",
+        "track_id",
+        "resolution_kind",
+        "resolution_rule_version",
+        "normalization_version",
+        "resolved_at_epoch_ms",
+      ]);
+      assert.deepEqual(columns(connection, "manual_identity_track_override"), [
+        "manual_decision_key",
+        "track_id",
+        "artist_id",
+        "release_id",
+      ]);
     });
   });
 
@@ -335,6 +378,8 @@ describe("initial schema contract", () => {
         "listening_event_track_time_idx",
         "reconciliation_candidate_state_idx",
         "artist_genre_evidence_artist_idx",
+        "manual_reconciliation_decision_candidate_idx",
+        "manual_identity_resolution_override_source_idx",
       ]) {
         assert.equal(indexes.has(expected), true, `missing index ${expected}`);
       }
@@ -360,6 +405,31 @@ describe("initial schema contract", () => {
       assert.deepEqual(foreignKeys(connection, "artist_genre_evidence"), [
         "artist_id->artist",
         "genre_tag_id->genre_tag",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "manual_identity_decision"), [
+        "decision_key->manual_decision_artifact",
+        "identity_decision_id->identity_decision",
+        "object_source_record_id->source_record",
+        "subject_source_record_id->source_record",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "manual_reconciliation_decision"), [
+        "decision_key->manual_decision_artifact",
+        "reconciliation_candidate_id->reconciliation_candidate",
+        "source_listening_event_id->listening_event",
+        "target_listening_event_id->listening_event",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "manual_identity_resolution_override"), [
+        "artist_id->artist",
+        "manual_decision_key->manual_decision_artifact",
+        "release_id->release",
+        "source_record_id->source_record",
+        "track_id->track",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "manual_identity_track_override"), [
+        "artist_id->artist",
+        "manual_decision_key->manual_decision_artifact",
+        "release_id->release",
+        "track_id->track",
       ]);
 
       assert.throws(
@@ -488,6 +558,8 @@ describe("initial schema contract", () => {
           "add_cross_source_candidate_generation",
           "add_reconciliation_match_features",
           "add_reconciliation_decision_history",
+          "add_manual_decision_artifacts",
+          "add_manual_identity_override_snapshots",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);
