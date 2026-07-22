@@ -171,6 +171,7 @@ describe("initial schema contract", () => {
         "identity_decision",
         "identity_resolution_conflict",
         "ingest_run",
+        "lastfm_api_sync_metadata",
         "lastfm_scrobble_occurrence",
         "lastfm_scrobble_source",
         "listening_event",
@@ -231,6 +232,12 @@ describe("initial schema contract", () => {
         "source_record_id",
         "lastfm_scrobble_source_record_id",
         "source_origin",
+      ]);
+      assert.deepEqual(columns(connection, "lastfm_api_sync_metadata"), [
+        "ingest_run_id",
+        "page_count",
+        "completed_track_count",
+        "ignored_now_playing_count",
       ]);
       assert.deepEqual(columns(connection, "source_identity_resolution"), [
         "source_record_id",
@@ -397,6 +404,9 @@ describe("initial schema contract", () => {
         "lastfm_scrobble_source_record_id->lastfm_scrobble_source",
         "source_record_id->source_record",
       ]);
+      assert.deepEqual(foreignKeys(connection, "lastfm_api_sync_metadata"), [
+        "ingest_run_id->ingest_run",
+      ]);
       assert.deepEqual(foreignKeys(connection, "listening_event_source"), [
         "listening_event_id->listening_event",
         "reconciliation_candidate_id->reconciliation_candidate",
@@ -455,6 +465,36 @@ describe("initial schema contract", () => {
             )
             .run(),
         /FOREIGN KEY constraint failed/,
+      );
+
+      const historicalRun = connection
+        .prepare(
+          `INSERT INTO ingest_run (command_type, started_at_epoch_ms, status, schema_version)
+           VALUES ('lastfm_export_import', 1, 'running', '11')`,
+        )
+        .run();
+      const apiRun = connection
+        .prepare(
+          `INSERT INTO ingest_run (command_type, started_at_epoch_ms, status, schema_version)
+           VALUES ('lastfm_api_sync', 1, 'running', '11')`,
+        )
+        .run();
+      const insertApiMetadata = connection.prepare(
+        `INSERT INTO lastfm_api_sync_metadata
+          (ingest_run_id, page_count, completed_track_count, ignored_now_playing_count)
+         VALUES (?, 0, 0, 0)`,
+      );
+      assert.throws(
+        () => insertApiMetadata.run([Number(historicalRun.lastInsertRowid)]),
+        /Last\.fm API sync metadata requires a lastfm_api_sync ingest run/,
+      );
+      insertApiMetadata.run([Number(apiRun.lastInsertRowid)]);
+      assert.throws(
+        () =>
+          connection
+            .prepare("UPDATE ingest_run SET command_type = 'lastfm_export_import' WHERE id = ?")
+            .run([Number(apiRun.lastInsertRowid)]),
+        /Last\.fm API sync metadata requires a lastfm_api_sync ingest run/,
       );
 
       const tableSql = schemaObjects(connection)
@@ -560,6 +600,7 @@ describe("initial schema contract", () => {
           "add_reconciliation_decision_history",
           "add_manual_decision_artifacts",
           "add_manual_identity_override_snapshots",
+          "add_lastfm_api_sync_metadata",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

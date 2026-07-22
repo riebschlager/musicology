@@ -573,8 +573,7 @@ function validateFingerprints(
      LEFT JOIN lastfm_scrobble_source AS evidence
        ON evidence.source_record_id = occurrence.lastfm_scrobble_source_record_id
      WHERE source.source_kind = 'lastfm'
-       AND (occurrence.source_record_id IS NULL OR evidence.source_record_id IS NULL
-            OR occurrence.source_origin <> evidence.source_origin)`,
+       AND (occurrence.source_record_id IS NULL OR evidence.source_record_id IS NULL)`,
     ) +
     count(
       connection,

@@ -15,6 +15,15 @@ export const HistoricalIngestCommand = {
 export type HistoricalIngestCommand =
   (typeof HistoricalIngestCommand)[keyof typeof HistoricalIngestCommand];
 
+/** Commands that create source evidence, including incremental API synchronization. */
+export const SourceEvidenceIngestCommand = {
+  ...HistoricalIngestCommand,
+  LastfmApi: "lastfm_api_sync",
+} as const;
+
+export type SourceEvidenceIngestCommand =
+  (typeof SourceEvidenceIngestCommand)[keyof typeof SourceEvidenceIngestCommand];
+
 /** Stable, privacy-safe codes. They never contain source values or raw payloads. */
 export const IngestIssueCode = {
   DuplicateRecord: "duplicate_source_record",
@@ -99,7 +108,7 @@ export interface IngestRecordCounts {
 
 export interface IngestSummary {
   readonly runId: number;
-  readonly commandType: HistoricalIngestCommand;
+  readonly commandType: SourceEvidenceIngestCommand;
   readonly status: "succeeded";
   readonly noOp: boolean;
   readonly files: IngestFileCounts;
@@ -115,7 +124,7 @@ export interface IngestRunContext {
 }
 
 export interface IngestLifecycleOptions {
-  readonly commandType: HistoricalIngestCommand;
+  readonly commandType: SourceEvidenceIngestCommand;
   readonly connection: SqliteConnection;
   readonly now?: () => number;
   readonly ruleVersion?: string;

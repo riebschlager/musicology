@@ -14,7 +14,16 @@ maximum limit of 200, keeping the explicit inclusive `from` and optional `to` bo
 It yields projected pages incrementally and stops only after the validated total-page bound is
 complete. It rejects a response whose page number repeats or differs from the requested page, or
 whose page count, total, or per-page metadata changes during the sequence, or whose completed
-records do not match the stable pagination metadata. Persistence remains deferred to P3-05.
+records do not match the stable pagination metadata.
+
+P3-05 adds `src/lastfm/persistence.ts`, which accepts only the already validated completed-track
+projection and converts it to the shared privacy-reviewed Last.fm evidence shape. It records API
+occurrence provenance, links matching export/API evidence, and runs identity, canonical-event, and
+reconciliation processing within the ingest lifecycle transaction. Each successful attempt stores
+only aggregate response metadata (page, completed-track, and ignored-now-playing counts), bound by
+schema to its `lastfm_api_sync` run;
+credentials, account identity, URLs, and response bodies are not persisted. No `sync:lastfm`
+command exists yet; P3-06 will orchestrate fetching, persistence, and cursor advancement.
 
 P3-04 adds `src/lastfm/sync-plan.ts`, a database-backed planning boundary used by the future
 `sync:lastfm` command. A normal plan starts from the last successful scope cursor minus the

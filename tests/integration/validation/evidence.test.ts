@@ -10,9 +10,14 @@ import type {
   SqliteRow,
   TransactionMode,
 } from "../../../src/db/connection.ts";
-import { IngestIssueCode, IngestIssueSummary } from "../../../src/importers/contracts.ts";
+import {
+  IngestIssueCode,
+  IngestIssueSummary,
+  SourceEvidenceIngestCommand,
+} from "../../../src/importers/contracts.ts";
 import { fingerprintLastfmScrobble } from "../../../src/importers/lastfm-export/boundary.ts";
 import { importLastfmExportFiles } from "../../../src/importers/lastfm-export/persistence.ts";
+import { runIngestLifecycle } from "../../../src/importers/lifecycle.ts";
 import { importSpotifyFiles } from "../../../src/importers/spotify/persistence.ts";
 import { createCanonicalEvents } from "../../../src/identity/events.ts";
 import { resolveSourceIdentities } from "../../../src/identity/resolution.ts";
@@ -465,6 +470,60 @@ describe("evidence-layer validation", () => {
         workspace.configuration.paths.inputsDirectory,
       );
       assert.ok(validation.errors.some((error) => error.code === "lastfm_occurrence_invalid"));
+    });
+  });
+
+  it("allows an API occurrence to reuse export-backed Last.fm evidence", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const evidence = workspace.connection
+        .prepare<{
+          readonly source_fingerprint_sha256: string;
+          readonly source_record_id: number;
+        }>("SELECT source_record_id, source_fingerprint_sha256 FROM lastfm_scrobble_source")
+        .get();
+      assert.notEqual(evidence, undefined);
+
+      runIngestLifecycle(
+        {
+          commandType: SourceEvidenceIngestCommand.LastfmApi,
+          connection: workspace.connection,
+          now: () => 1_800_000_002_000,
+          schemaVersion: "11",
+        },
+        (context) => {
+          const occurrence = context.connection
+            .prepare(
+              `INSERT INTO source_record (source_kind, ingest_run_id, accepted_at_epoch_ms)
+               VALUES ('lastfm', ?, ?)`,
+            )
+            .run([context.runId, 1_800_000_002_000]);
+          context.connection
+            .prepare(
+              `INSERT INTO lastfm_scrobble_occurrence
+                (source_record_id, lastfm_scrobble_source_record_id, source_origin)
+               VALUES (?, ?, 'api')`,
+            )
+            .run([Number(occurrence.lastInsertRowid), evidence?.source_record_id ?? 0]);
+          context.recordOutcome({
+            kind: "duplicate",
+            code: IngestIssueCode.DuplicateRecord,
+            sourceFingerprintSha256: evidence?.source_fingerprint_sha256 ?? "",
+          });
+        },
+      );
+      resolveSourceIdentities(workspace.connection, { now: () => 1_800_000_002_500 });
+      createCanonicalEvents(workspace.connection);
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, true);
+      assert.equal(
+        validation.errors.some((error) => error.code === "lastfm_occurrence_invalid"),
+        false,
+      );
     });
   });
 
