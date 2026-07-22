@@ -25,6 +25,11 @@ reconciliation, canonical events, genre enrichment, synchronization cursors, and
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately
 contains no speculative materialized analysis tables.
 
+`sync_cursor` stores the last wholly successful Last.fm API boundary per one-way account-scope
+fingerprint. It references the successful ingest run that established the boundary; P3-04's
+planning boundary enforces monotonic updates so bounded recovery work cannot regress normal sync
+state.
+
 ## Ingest lifecycle counts
 
 `ingest_run` keeps discovered, accepted, duplicated, excluded, and rejected record counts separately

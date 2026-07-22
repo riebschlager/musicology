@@ -14,8 +14,22 @@ maximum limit of 200, keeping the explicit inclusive `from` and optional `to` bo
 It yields projected pages incrementally and stops only after the validated total-page bound is
 complete. It rejects a response whose page number repeats or differs from the requested page, or
 whose page count, total, or per-page metadata changes during the sequence, or whose completed
-records do not match the stable pagination metadata. Persistence and cursor updates remain deferred
-to their respective Phase 3 tasks.
+records do not match the stable pagination metadata. Persistence remains deferred to P3-05.
+
+P3-04 adds `src/lastfm/sync-plan.ts`, a database-backed planning boundary used by the future
+`sync:lastfm` command. A normal plan starts from the last successful scope cursor minus the
+configurable five-minute safety overlap. If that cursor does not exist, it starts from the newest
+approved Last.fm evidence minus the same overlap. An explicit initial UTC epoch-millisecond
+boundary takes precedence on a first sync; it is required when no imported evidence exists. The
+scope cursor is keyed by a versioned one-way SHA-256 fingerprint of the configured account name,
+never the account name itself.
+
+Explicit `from` or `to` boundaries are recovery plans. They are represented with a `preserve`
+cursor-update policy, so P3-06 must not advance the normal cursor after such a run. The planner
+also exposes a safe, structured dry-run window (`fromEpochMs`, nullable `toEpochMs`, source, and
+cursor-update policy) for that command's human and JSON output. Its cursor writer accepts only an
+`advance_on_success` plan with a succeeded `lastfm_api_sync` ingest run and never permits the
+stored boundary to move backward.
 
 The client has an injectable transport, clock, sleep function, and jitter source for deterministic tests. Each
 request has a 15-second timeout and retries at most three times (four total attempts). Transport
