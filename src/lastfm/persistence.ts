@@ -5,6 +5,7 @@ import {
   IngestIssueCode,
   SourceEvidenceIngestCommand,
   type IngestSummary,
+  type SuccessfulIngestRunContext,
 } from "../importers/contracts.ts";
 import { runIngestLifecycle } from "../importers/lifecycle.ts";
 import {
@@ -12,6 +13,7 @@ import {
   type LastfmScrobbleSourceRecord,
 } from "../importers/lastfm-export/boundary.ts";
 import { applyReconciliationDecisions } from "../reconciliation/apply.ts";
+import type { ReconciliationApplySummary } from "../reconciliation/apply.ts";
 import { generateCrossSourceCandidates } from "../reconciliation/candidates.ts";
 import { calculateCrossSourceMatchFeatures } from "../reconciliation/features.ts";
 import type { LastfmCompletedTrack, LastfmRecentTracksPage } from "./client.ts";
@@ -26,11 +28,14 @@ interface ExistingEvidenceRow extends SqliteRow {
 export interface PersistLastfmApiPagesOptions {
   readonly connection: SqliteConnection;
   readonly now?: () => number;
+  /** Runs after the API ingest run succeeds but before its transaction commits. */
+  readonly onSuccessfulRun?: (context: SuccessfulIngestRunContext) => void;
   readonly pages: readonly LastfmRecentTracksPage[];
   readonly schemaVersion: string;
 }
 
 export interface LastfmApiPersistenceSummary extends IngestSummary {
+  readonly reconciliation: ReconciliationApplySummary;
   readonly response: {
     readonly completedTracks: number;
     readonly ignoredNowPlaying: number;
@@ -171,11 +176,13 @@ export function persistLastfmApiPages(
     pages: options.pages.length,
   };
   let pipeline: LastfmApiPersistenceSummary["pipeline"] | undefined;
+  let reconciliation: ReconciliationApplySummary | undefined;
   const summary = runIngestLifecycle(
     {
       commandType: SourceEvidenceIngestCommand.LastfmApi,
       connection: options.connection,
       ...(options.now === undefined ? {} : { now: options.now }),
+      ...(options.onSuccessfulRun === undefined ? {} : { afterSuccess: options.onSuccessfulRun }),
       schemaVersion: options.schemaVersion,
     },
     (context) => {
@@ -211,7 +218,7 @@ export function persistLastfmApiPages(
       const duplicates = collapseExactDuplicateEvents(context.connection);
       const candidates = generateCrossSourceCandidates(context.connection, identityOptions);
       const features = calculateCrossSourceMatchFeatures(context.connection);
-      applyReconciliationDecisions(context.connection, identityOptions);
+      reconciliation = applyReconciliationDecisions(context.connection, identityOptions);
       pipeline = {
         canonicalEvents: events.processed,
         candidatePairs: candidates.inserted,
@@ -221,6 +228,7 @@ export function persistLastfmApiPages(
       };
     },
   );
-  if (pipeline === undefined) throw new Error("Last.fm API persistence pipeline did not complete");
-  return { ...summary, pipeline, response };
+  if (pipeline === undefined || reconciliation === undefined)
+    throw new Error("Last.fm API persistence pipeline did not complete");
+  return { ...summary, pipeline, reconciliation, response };
 }

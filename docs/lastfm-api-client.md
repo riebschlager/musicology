@@ -22,8 +22,9 @@ occurrence provenance, links matching export/API evidence, and runs identity, ca
 reconciliation processing within the ingest lifecycle transaction. Each successful attempt stores
 only aggregate response metadata (page, completed-track, and ignored-now-playing counts), bound by
 schema to its `lastfm_api_sync` run;
-credentials, account identity, URLs, and response bodies are not persisted. No `sync:lastfm`
-command exists yet; P3-06 will orchestrate fetching, persistence, and cursor advancement.
+credentials, account identity, URLs, and response bodies are not persisted. P3-06 adds
+`sync:lastfm`, documented in [`lastfm-sync.md`](lastfm-sync.md), to orchestrate fetching,
+persistence, reconciliation, and cursor advancement.
 
 P3-04 adds `src/lastfm/sync-plan.ts`, a database-backed planning boundary used by the future
 `sync:lastfm` command. A normal plan starts from the last successful scope cursor minus the

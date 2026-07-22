@@ -123,7 +123,15 @@ export interface IngestRunContext {
   recordUnsupportedFile(): void;
 }
 
+/** A completed ingest run that is still inside the transaction that created its evidence. */
+export interface SuccessfulIngestRunContext {
+  readonly connection: SqliteConnection;
+  readonly runId: number;
+}
+
 export interface IngestLifecycleOptions {
+  /** Runs after successful lifecycle state is recorded, before its transaction commits. */
+  readonly afterSuccess?: (context: SuccessfulIngestRunContext) => void;
   readonly commandType: SourceEvidenceIngestCommand;
   readonly connection: SqliteConnection;
   readonly now?: () => number;

@@ -298,6 +298,7 @@ export function runIngestLifecycle(
       operation(context);
       const completedAt = Math.max(startedAt, validateNonNegativeEpoch(now()));
       updateCompletedRun(transactionConnection, runId, completedAt, counts);
+      options.afterSuccess?.({ connection: transactionConnection, runId });
     });
   } catch (error) {
     const issue =
