@@ -2,6 +2,10 @@ const LASTFM_RECENT_TRACKS_ENDPOINT = "https://ws.audioscrobbler.com/2.0/";
 
 export const LASTFM_USER_AGENT = "musicology/0.0.0 (local-first music history client)";
 export const DEFAULT_LASTFM_REQUEST_TIMEOUT_MS = 15_000;
+export const DEFAULT_LASTFM_MAX_RETRIES = 3;
+export const DEFAULT_LASTFM_RETRY_BASE_DELAY_MS = 1_000;
+export const DEFAULT_LASTFM_RETRY_MAX_DELAY_MS = 30_000;
+export const DEFAULT_LASTFM_RETRY_JITTER_RATIO = 0.25;
 
 export interface LastfmClock {
   now(): number;
@@ -16,6 +20,7 @@ export interface LastfmHttpRequest {
 }
 
 export interface LastfmHttpResponse {
+  readonly headers?: Readonly<Record<string, string>>;
   readonly status: number;
   text(): Promise<string>;
 }
@@ -72,6 +77,7 @@ export const LastfmClientErrorCategory = {
   Http: "http",
   InvalidRequest: "invalid_request",
   InvalidResponse: "invalid_response",
+  RateLimit: "rate_limit",
   Timeout: "timeout",
   Transport: "transport",
 } as const;
@@ -84,21 +90,32 @@ export class LastfmClientError extends Error {
   readonly apiCode: number | undefined;
   readonly category: LastfmClientErrorCategory;
   readonly httpStatus: number | undefined;
+  readonly retryAfterMs: number | undefined;
 
-  constructor(
-    category: LastfmClientErrorCategory,
-    options: { readonly apiCode?: number; readonly httpStatus?: number } = {},
-  ) {
+  constructor(category: LastfmClientErrorCategory, options: LastfmClientErrorOptions = {}) {
     super(lastfmClientErrorSummary(category));
     this.name = "LastfmClientError";
     this.category = category;
     this.apiCode = options.apiCode;
     this.httpStatus = options.httpStatus;
+    this.retryAfterMs = options.retryAfterMs;
   }
+}
+
+interface LastfmClientErrorOptions {
+  readonly apiCode?: number;
+  readonly httpStatus?: number;
+  readonly retryAfterMs?: number;
 }
 
 export interface LastfmClientOptions {
   readonly clock?: LastfmClock;
+  readonly jitter?: () => number;
+  readonly maxRetries?: number;
+  readonly retryBaseDelayMs?: number;
+  readonly retryMaxDelayMs?: number;
+  readonly retryJitterRatio?: number;
+  readonly sleep?: (delayMs: number) => Promise<void>;
   readonly timeoutMs?: number;
   readonly transport?: LastfmHttpTransport;
   readonly userAgent?: string;
@@ -116,13 +133,23 @@ const fetchTransport: LastfmHttpTransport = {
       headers: request.headers,
       signal: request.signal,
     });
-    return response;
+    return {
+      headers: Object.fromEntries(response.headers.entries()),
+      status: response.status,
+      text: () => response.text(),
+    };
   },
 };
 
 export class LastfmClient {
   private readonly clock: LastfmClock;
   private readonly configuration: LastfmClientConfiguration;
+  private readonly jitter: () => number;
+  private readonly maxRetries: number;
+  private readonly retryBaseDelayMs: number;
+  private readonly retryMaxDelayMs: number;
+  private readonly retryJitterRatio: number;
+  private readonly sleep: (delayMs: number) => Promise<void>;
   private readonly timeoutMs: number;
   private readonly transport: LastfmHttpTransport;
   private readonly userAgent: string;
@@ -134,16 +161,54 @@ export class LastfmClient {
 
     this.configuration = configuration;
     this.clock = options.clock ?? systemClock;
+    this.jitter = options.jitter ?? Math.random;
+    this.maxRetries = options.maxRetries ?? DEFAULT_LASTFM_MAX_RETRIES;
+    this.retryBaseDelayMs = options.retryBaseDelayMs ?? DEFAULT_LASTFM_RETRY_BASE_DELAY_MS;
+    this.retryMaxDelayMs = options.retryMaxDelayMs ?? DEFAULT_LASTFM_RETRY_MAX_DELAY_MS;
+    this.retryJitterRatio = options.retryJitterRatio ?? DEFAULT_LASTFM_RETRY_JITTER_RATIO;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_LASTFM_REQUEST_TIMEOUT_MS;
     this.transport = options.transport ?? fetchTransport;
     this.userAgent = options.userAgent ?? LASTFM_USER_AGENT;
+    this.sleep =
+      options.sleep ??
+      ((delayMs) =>
+        new Promise<void>((resolve) => {
+          this.clock.setTimeout(resolve, delayMs);
+        }));
 
-    if (!isPositiveSafeInteger(this.timeoutMs) || !isNonBlankSafeText(this.userAgent)) {
+    if (
+      !isPositiveSafeInteger(this.timeoutMs) ||
+      !isNonNegativeSafeInteger(this.maxRetries) ||
+      !isPositiveSafeInteger(this.retryBaseDelayMs) ||
+      !isPositiveSafeInteger(this.retryMaxDelayMs) ||
+      this.retryMaxDelayMs < this.retryBaseDelayMs ||
+      !isUnitInterval(this.retryJitterRatio) ||
+      !isNonBlankSafeText(this.userAgent)
+    ) {
       throw new LastfmClientError(LastfmClientErrorCategory.InvalidRequest);
     }
   }
 
   async getRecentTracksPage(request: LastfmRecentTracksRequest): Promise<LastfmRecentTracksPage> {
+    for (let retry = 0; ; retry += 1) {
+      try {
+        return await this.getRecentTracksPageAttempt(request);
+      } catch (error) {
+        if (
+          !(error instanceof LastfmClientError) ||
+          !isRetryable(error) ||
+          retry >= this.maxRetries
+        ) {
+          throw error;
+        }
+        await this.wait(this.retryDelayMs(error, retry));
+      }
+    }
+  }
+
+  private async getRecentTracksPageAttempt(
+    request: LastfmRecentTracksRequest,
+  ): Promise<LastfmRecentTracksPage> {
     const parameters = recentTracksParameters(this.configuration, request);
     const controller = new AbortController();
     const timeout = this.clock.setTimeout(() => controller.abort(), this.timeoutMs);
@@ -169,8 +234,14 @@ export class LastfmClient {
         response.status < 200 ||
         response.status >= 300
       ) {
-        throw new LastfmClientError(LastfmClientErrorCategory.Http, {
+        const category =
+          response.status === 429
+            ? LastfmClientErrorCategory.RateLimit
+            : LastfmClientErrorCategory.Http;
+        const responseRetryAfterMs = retryAfterMs(response.headers, this.clock.now());
+        throw new LastfmClientError(category, {
           httpStatus: response.status,
+          ...(responseRetryAfterMs === undefined ? {} : { retryAfterMs: responseRetryAfterMs }),
         });
       }
 
@@ -184,10 +255,22 @@ export class LastfmClient {
             : LastfmClientErrorCategory.InvalidResponse,
         );
       }
-      return parseRecentTracksPayload(payload);
+      return parseRecentTracksPayload(payload, response.headers, this.clock.now());
     } finally {
       this.clock.clearTimeout(timeout);
     }
+  }
+
+  private async wait(delayMs: number): Promise<void> {
+    await this.sleep(delayMs);
+  }
+
+  private retryDelayMs(error: LastfmClientError, retry: number): number {
+    const exponential = Math.min(this.retryMaxDelayMs, this.retryBaseDelayMs * 2 ** retry);
+    const jittered = Math.round(
+      exponential * (1 + (this.jitter() * 2 - 1) * this.retryJitterRatio),
+    );
+    return Math.max(error.retryAfterMs ?? 0, Math.min(this.retryMaxDelayMs, jittered));
   }
 
   /**
@@ -279,11 +362,22 @@ function recentTracksParameters(
   return parameters;
 }
 
-function parseRecentTracksPayload(payload: unknown): LastfmRecentTracksPage {
+function parseRecentTracksPayload(
+  payload: unknown,
+  headers: Readonly<Record<string, string>> | undefined,
+  nowMs: number,
+): LastfmRecentTracksPage {
   if (!isObject(payload)) throw new LastfmClientError(LastfmClientErrorCategory.InvalidResponse);
   const apiError = parseApiError(payload);
   if (apiError !== undefined) {
-    throw new LastfmClientError(LastfmClientErrorCategory.Api, { apiCode: apiError });
+    const responseRetryAfterMs = retryAfterMs(headers, nowMs);
+    throw new LastfmClientError(
+      apiError === 29 ? LastfmClientErrorCategory.RateLimit : LastfmClientErrorCategory.Api,
+      {
+        apiCode: apiError,
+        ...(responseRetryAfterMs === undefined ? {} : { retryAfterMs: responseRetryAfterMs }),
+      },
+    );
   }
 
   const recentTracks = payload.recenttracks;
@@ -439,12 +533,53 @@ function isPositiveSafeInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 
+function isUnitInterval(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function isRetryable(error: LastfmClientError): boolean {
+  return (
+    error.category === LastfmClientErrorCategory.RateLimit ||
+    error.category === LastfmClientErrorCategory.Timeout ||
+    error.category === LastfmClientErrorCategory.Transport ||
+    (error.category === LastfmClientErrorCategory.Http &&
+      (error.httpStatus === 408 ||
+        error.httpStatus === 425 ||
+        error.httpStatus === 500 ||
+        error.httpStatus === 502 ||
+        error.httpStatus === 503 ||
+        error.httpStatus === 504))
+  );
+}
+
+function retryAfterMs(
+  headers: Readonly<Record<string, string>> | undefined,
+  nowMs: number,
+): number | undefined {
+  if (headers === undefined) return undefined;
+  const normalized = new Map(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
+  );
+  const retryAfter = normalized.get("retry-after");
+  if (retryAfter !== undefined) {
+    if (/^\d+$/u.test(retryAfter.trim())) return Number(retryAfter.trim()) * 1_000;
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - nowMs);
+  }
+  const reset = normalized.get("x-rate-limit-reset");
+  if (reset !== undefined && /^\d+$/u.test(reset.trim())) {
+    return Math.max(0, Number(reset.trim()) * 1_000 - nowMs);
+  }
+  return undefined;
+}
+
 function lastfmClientErrorSummary(category: LastfmClientErrorCategory): string {
   return {
     [LastfmClientErrorCategory.Api]: "Last.fm returned an API error",
     [LastfmClientErrorCategory.Http]: "Last.fm returned an unsuccessful HTTP response",
     [LastfmClientErrorCategory.InvalidRequest]: "Last.fm request parameters are invalid",
     [LastfmClientErrorCategory.InvalidResponse]: "Last.fm returned an invalid response",
+    [LastfmClientErrorCategory.RateLimit]: "Last.fm rate limit was reached",
     [LastfmClientErrorCategory.Timeout]: "Last.fm request timed out",
     [LastfmClientErrorCategory.Transport]: "Last.fm transport request failed",
   }[category];

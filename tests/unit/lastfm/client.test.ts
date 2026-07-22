@@ -76,7 +76,30 @@ function transportReturning(value: LastfmHttpResponse): {
 }
 
 function client(transport: LastfmHttpTransport): LastfmClient {
-  return new LastfmClient({ apiKey: secret, username }, { transport });
+  return new LastfmClient({ apiKey: secret, username }, { maxRetries: 0, transport });
+}
+
+function retryClock(
+  delays: number[],
+  now = 0,
+): {
+  readonly clock: {
+    now(): number;
+    setTimeout(callback: () => void, delayMs: number): unknown;
+    clearTimeout(handle: unknown): void;
+  };
+} {
+  return {
+    clock: {
+      now: () => now,
+      setTimeout: (callback, delayMs) => {
+        delays.push(delayMs);
+        if (delayMs !== 10_000) callback();
+        return delayMs;
+      },
+      clearTimeout: () => undefined,
+    },
+  };
 }
 
 async function collectPages(
@@ -235,7 +258,7 @@ describe("Last.fm API client", () => {
 
   it("classifies HTTP and Last.fm API errors without exposing remote messages", async () => {
     const http = transportReturning(response(503, { message: secret }));
-    const api = transportReturning(response(200, { error: "29", message: secret }));
+    const api = transportReturning(response(200, { error: "6", message: secret }));
 
     const httpError = await expectClientError(
       () => client(http.transport).getRecentTracksPage({ fromEpochMs: 0 }),
@@ -247,9 +270,130 @@ describe("Last.fm API client", () => {
     );
 
     assert.equal(httpError.httpStatus, 503);
-    assert.equal(apiError.apiCode, 29);
+    assert.equal(apiError.apiCode, 6);
     assert.equal(httpError.message.includes(secret), false);
     assert.equal(apiError.message.includes(secret), false);
+  });
+
+  it("retries transient HTTP failures with bounded exponential backoff and injectable jitter", async () => {
+    const delays: number[] = [];
+    const clock = retryClock(delays);
+    const responses = [
+      response(503, { message: secret }),
+      response(502, { message: secret }),
+      response(200, pagePayload([completedTrack()])),
+    ];
+    let requests = 0;
+    const result = await new LastfmClient(
+      { apiKey: secret, username },
+      {
+        clock: clock.clock,
+        jitter: () => 0.5,
+        maxRetries: 2,
+        retryBaseDelayMs: 10,
+        retryMaxDelayMs: 100,
+        retryJitterRatio: 0,
+        timeoutMs: 10_000,
+        transport: { request: async () => responses[requests++] ?? response(500, {}) },
+      },
+    ).getRecentTracksPage({ fromEpochMs: 0 });
+
+    assert.equal(result.completedTracks.length, 1);
+    assert.equal(requests, 3);
+    assert.deepEqual(
+      delays.filter((delay) => delay !== 10_000),
+      [10, 20],
+    );
+  });
+
+  it("honors Retry-After for rate limits and retries Last.fm rate-limit errors", async () => {
+    const delays: number[] = [];
+    const clock = retryClock(delays);
+    const responses = [
+      { ...response(429, { message: secret }), headers: { "Retry-After": "2" } },
+      response(200, pagePayload([completedTrack()])),
+    ];
+    let requests = 0;
+    const result = await new LastfmClient(
+      { apiKey: secret, username },
+      {
+        clock: clock.clock,
+        jitter: () => 0,
+        retryBaseDelayMs: 10,
+        retryMaxDelayMs: 100,
+        timeoutMs: 10_000,
+        transport: { request: async () => responses[requests++] ?? response(500, {}) },
+      },
+    ).getRecentTracksPage({ fromEpochMs: 0 });
+
+    assert.equal(result.completedTracks.length, 1);
+    assert.deepEqual(
+      delays.filter((delay) => delay !== 10_000),
+      [2_000],
+    );
+  });
+
+  it("retries Last.fm API error 29 as a rate limit", async () => {
+    const delays: number[] = [];
+    const clock = retryClock(delays);
+    const responses = [
+      response(200, { error: "29", message: secret }),
+      response(200, pagePayload([completedTrack()])),
+    ];
+    let requests = 0;
+    const result = await new LastfmClient(
+      { apiKey: secret, username },
+      {
+        clock: clock.clock,
+        jitter: () => 0.5,
+        retryBaseDelayMs: 10,
+        retryMaxDelayMs: 100,
+        retryJitterRatio: 0,
+        timeoutMs: 10_000,
+        transport: { request: async () => responses[requests++] ?? response(500, {}) },
+      },
+    ).getRecentTracksPage({ fromEpochMs: 0 });
+
+    assert.equal(result.completedTracks.length, 1);
+    assert.equal(requests, 2);
+    assert.deepEqual(
+      delays.filter((delay) => delay !== 10_000),
+      [10],
+    );
+  });
+
+  it("does not retry non-transient failures and stops after the retry bound", async () => {
+    const nonRetryable = transportReturning(response(400, { message: secret }));
+    const error = await expectClientError(
+      () => client(nonRetryable.transport).getRecentTracksPage({ fromEpochMs: 0 }),
+      LastfmClientErrorCategory.Http,
+    );
+    assert.equal(error.httpStatus, 400);
+    assert.equal(nonRetryable.requests.length, 1);
+
+    let exhaustedRequests = 0;
+    const exhausted = new LastfmClient(
+      { apiKey: secret, username },
+      {
+        clock: retryClock([]).clock,
+        jitter: () => 0.5,
+        maxRetries: 2,
+        retryBaseDelayMs: 1,
+        retryMaxDelayMs: 2,
+        timeoutMs: 10_000,
+        transport: {
+          request: async () => {
+            exhaustedRequests += 1;
+            return response(503, { message: secret });
+          },
+        },
+      },
+    );
+    await expectClientError(
+      () => exhausted.getRecentTracksPage({ fromEpochMs: 0 }),
+      LastfmClientErrorCategory.Http,
+    );
+    assert.equal(exhaustedRequests, 3);
   });
 
   it("redacts request details from transport failures while retaining no secret-bearing error data", async () => {
@@ -289,6 +433,7 @@ describe("Last.fm API client", () => {
             throw new Error("aborted");
           },
         },
+        maxRetries: 0,
       },
     );
 
@@ -297,6 +442,54 @@ describe("Last.fm API client", () => {
       LastfmClientErrorCategory.Timeout,
     );
     assert.equal(clearedTimeout, "timeout-handle");
+  });
+
+  it("retries a timeout and recovers on the next attempt", async () => {
+    const delays: number[] = [];
+    let timeoutCallbacks = 0;
+    const clock = {
+      now: () => 0,
+      setTimeout: (callback: () => void, delayMs: number): unknown => {
+        delays.push(delayMs);
+        if (delayMs === 10_000 && timeoutCallbacks++ === 0) callback();
+        if (delayMs !== 10_000) callback();
+        return delayMs;
+      },
+      clearTimeout: () => undefined,
+    };
+    let requests = 0;
+    const timedOutOnce = new LastfmClient(
+      { apiKey: secret, username },
+      {
+        clock,
+        jitter: () => 0.5,
+        maxRetries: 1,
+        retryBaseDelayMs: 10,
+        retryMaxDelayMs: 100,
+        retryJitterRatio: 0,
+        timeoutMs: 10_000,
+        transport: {
+          request: async (request) => {
+            requests += 1;
+            if (requests === 1) {
+              assert.equal(request.signal.aborted, true);
+              throw new Error("aborted");
+            }
+            assert.equal(request.signal.aborted, false);
+            return response(200, pagePayload([completedTrack()]));
+          },
+        },
+      },
+    );
+
+    const result = await timedOutOnce.getRecentTracksPage({ fromEpochMs: 0 });
+
+    assert.equal(result.completedTracks.length, 1);
+    assert.equal(requests, 2);
+    assert.deepEqual(
+      delays.filter((delay) => delay !== 10_000),
+      [10],
+    );
   });
 
   it("keeps the timeout active while reading the response body", async () => {
@@ -331,6 +524,7 @@ describe("Last.fm API client", () => {
               }),
           }),
         },
+        maxRetries: 0,
       },
     );
 
