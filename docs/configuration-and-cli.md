@@ -111,7 +111,9 @@ or its parent directories, and validation never changes journal mode. It verifie
 file against the bytes at its configured evidence path, reconciles ingest-run totals with persisted
 evidence, validates file/record/run ownership, validates ordinal ranges and excluded-record gaps,
 recomputes approved record fingerprints, checks Last.fm occurrence links, validates fixed rejection
-codes and summaries, and validates status-compatible ingest-run error summaries before running
+codes and summaries, validates status-compatible ingest-run error summaries, and checks Last.fm API
+cursor/run metadata (including that a non-empty run's cursor boundary matches its latest completed
+scrobble) plus API/export overlap provenance before running
 SQLite integrity and foreign-key checks. Errors identify only safe database IDs, counts, and
 invariant names; they never return paths, display text, hashes, stored diagnostic text, or raw source
 records.

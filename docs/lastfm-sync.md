@@ -48,3 +48,44 @@ the shared transaction, advancing the normal cursor only after that lifecycle su
 transport, validation, insert, or reconciliation failure leaves no partial API evidence and does not
 advance the cursor. Client errors and command output are safe fixed categories: credentials, account
 names, request URLs, response bodies, and raw records are never printed or stored.
+
+## Operations and safe recovery
+
+Store `LASTFM_USERNAME` and `LASTFM_API_KEY` only in the ignored local `.env` file (or an equivalent
+local secret manager). Copy the variable names from `.env.example`; leave the values out of shell
+history, command arguments, logs, support requests, and committed files. Run `pnpm validate` before
+the first sync and after an interrupted or unusual run. Validation is read-only and checks that each
+stored cursor references a wholly successful API run with aggregate-only metadata, and that API/export
+overlap provenance is internally consistent.
+
+For regular operation, run `pnpm sync:lastfm` periodically. It uses the successful cursor and a
+five-minute overlap, so an interrupted command is safe to rerun unchanged. A failure means no cursor
+advance and no partial API evidence; correct the local configuration or transient service condition,
+then rerun the same normal command. The client retries transient failures and rate limits with bounded
+backoff; do not work around a rate limit by launching concurrent syncs.
+
+For a missed interval or other recovery, first inspect the intended request only:
+
+```sh
+pnpm sync:lastfm --dry-run --from 1735689600000 --to 1735776000000 --json
+```
+
+If its aggregate window is correct, repeat the command without `--dry-run`. Explicit recovery bounds
+are inclusive and preserve the normal cursor, so they cannot accidentally move it backward or jump it
+over a gap. Repeat the same bounded window when needed; existing overlap evidence is harmless. Finish
+with `pnpm validate` and, when useful, `pnpm report:coverage`.
+
+## Local smoke procedure
+
+With credentials configured locally, use a short past UTC window that you are comfortable querying:
+
+```sh
+pnpm sync:lastfm --dry-run --from 1735689600000 --to 1735776000000 --json
+pnpm sync:lastfm --from 1735689600000 --to 1735776000000 --json
+pnpm sync:lastfm --from 1735689600000 --to 1735776000000 --json
+pnpm validate --json
+```
+
+The second live invocation should report no additional insertions for the same window. Do not copy
+the environment, command output containing local paths, or any API response into repository files;
+the documented commands never print credentials.

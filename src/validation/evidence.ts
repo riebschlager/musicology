@@ -618,6 +618,89 @@ function validateFingerprints(
   return spotify.length + lastfm.length;
 }
 
+/** Validates aggregate API-run metadata, cursor ownership, and API/export occurrence provenance. */
+function validateLastfmSynchronization(
+  connection: SqliteConnection,
+  errors: EvidenceValidationIssue[],
+): void {
+  const invalidApiRunMetadata = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM ingest_run AS run
+       LEFT JOIN lastfm_api_sync_metadata AS metadata ON metadata.ingest_run_id = run.id
+      WHERE run.command_type = 'lastfm_api_sync'
+        AND (
+          (run.status = 'succeeded' AND metadata.ingest_run_id IS NULL)
+          OR (run.status <> 'succeeded' AND metadata.ingest_run_id IS NOT NULL)
+          OR (metadata.ingest_run_id IS NOT NULL
+              AND (metadata.completed_track_count < run.discovered_count
+                   OR metadata.completed_track_count < run.accepted_count
+                   OR metadata.page_count = 0))
+        )`,
+  );
+  if (invalidApiRunMetadata > 0) {
+    addError(
+      errors,
+      "lastfm_api_run_metadata_invalid",
+      `${invalidApiRunMetadata} Last.fm API sync run(s) have incompatible aggregate response metadata.`,
+    );
+  }
+
+  const invalidCursorCount = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM sync_cursor AS cursor
+       LEFT JOIN ingest_run AS run ON run.id = cursor.last_successful_ingest_run_id
+       LEFT JOIN lastfm_api_sync_metadata AS metadata ON metadata.ingest_run_id = run.id
+       LEFT JOIN (
+         SELECT source.ingest_run_id, max(evidence.scrobbled_at_epoch_ms) AS latest_scrobbled_at_epoch_ms
+           FROM source_record AS source
+           JOIN lastfm_scrobble_occurrence AS occurrence ON occurrence.source_record_id = source.id
+           JOIN lastfm_scrobble_source AS evidence
+             ON evidence.source_record_id = occurrence.lastfm_scrobble_source_record_id
+          GROUP BY source.ingest_run_id
+       ) AS completed ON completed.ingest_run_id = run.id
+      WHERE cursor.source_type <> 'lastfm_api'
+         OR run.id IS NULL
+         OR run.command_type <> 'lastfm_api_sync'
+         OR run.status <> 'succeeded'
+         OR metadata.ingest_run_id IS NULL
+         OR cursor.updated_at_epoch_ms < run.completed_at_epoch_ms
+         OR (completed.latest_scrobbled_at_epoch_ms IS NOT NULL
+             AND cursor.boundary_epoch_ms <> completed.latest_scrobbled_at_epoch_ms)`,
+  );
+  if (invalidCursorCount > 0) {
+    addError(
+      errors,
+      "lastfm_sync_cursor_invalid",
+      `${invalidCursorCount} Last.fm sync cursor(s) do not reference a wholly successful API sync run.`,
+    );
+  }
+
+  const invalidOccurrenceOrigins = count(
+    connection,
+    `SELECT count(*) AS count
+       FROM lastfm_scrobble_occurrence AS occurrence
+       JOIN source_record AS source ON source.id = occurrence.source_record_id
+       JOIN ingest_run AS run ON run.id = source.ingest_run_id
+       JOIN lastfm_scrobble_source AS evidence
+         ON evidence.source_record_id = occurrence.lastfm_scrobble_source_record_id
+      WHERE (run.command_type = 'lastfm_export_import' AND occurrence.source_origin <> 'export')
+         OR (run.command_type = 'lastfm_api_sync' AND occurrence.source_origin <> 'api')
+         OR (occurrence.source_origin = 'export' AND evidence.source_origin <> 'export')
+         OR (occurrence.source_origin = 'api'
+             AND evidence.source_origin = 'api'
+             AND occurrence.source_record_id <> evidence.source_record_id)`,
+  );
+  if (invalidOccurrenceOrigins > 0) {
+    addError(
+      errors,
+      "lastfm_api_export_overlap_invalid",
+      `${invalidOccurrenceOrigins} Last.fm API/export occurrence link(s) have incompatible provenance.`,
+    );
+  }
+}
+
 function validateRejections(
   connection: SqliteConnection,
   errors: EvidenceValidationIssue[],
@@ -1136,6 +1219,7 @@ export function validateEvidenceLayer(
     validateSourceOwnership(snapshotConnection, errors);
     validateOrdinals(snapshotConnection, files, runs, errors);
     const fingerprints = validateFingerprints(snapshotConnection, errors);
+    validateLastfmSynchronization(snapshotConnection, errors);
     const rejections = validateRejections(snapshotConnection, errors);
     validateCanonicalInterpretations(snapshotConnection, errors);
     validateIdentityGraph(snapshotConnection, errors);
