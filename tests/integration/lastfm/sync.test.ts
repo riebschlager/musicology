@@ -160,7 +160,9 @@ describe("Last.fm synchronization orchestration", () => {
         },
         { existing: 0, fetched: 1, ignored: 1, inserted: 1, matched: 0 },
       );
-      assert.equal(first.cursorBoundaryEpochMs, page().completedTracks[0].scrobbledAtEpochMs);
+      const [firstTrack] = page().completedTracks;
+      assert.ok(firstTrack);
+      assert.equal(first.cursorBoundaryEpochMs, firstTrack.scrobbledAtEpochMs);
       assert.equal(count(workspace, "sync_cursor"), 1);
 
       const repeated = await synchronizeLastfm({

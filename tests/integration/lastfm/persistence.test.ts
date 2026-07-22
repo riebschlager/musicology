@@ -158,13 +158,21 @@ describe("Last.fm API evidence persistence", () => {
       assert.deepEqual(first.response, { completedTracks: 1, ignoredNowPlaying: 0, pages: 1 });
       assert.equal(count(workspace, "lastfm_scrobble_source"), 1);
       assert.equal(count(workspace, "source_record"), 2);
-      assert.equal(count(workspace, "listening_event"), 1);
+      assert.equal(
+        workspace.connection
+          .prepare<CountRow>(
+            "SELECT count(*) AS count FROM listening_event WHERE event_status <> 'superseded'",
+          )
+          .get()?.count,
+        1,
+      );
       assert.deepEqual(
         workspace.connection
           .prepare<EventRow>(
             `SELECT event.event_status, count(link.source_record_id) AS source_count
                FROM listening_event AS event
                JOIN listening_event_source AS link ON link.listening_event_id = event.id
+              WHERE event.event_status <> 'superseded'
               GROUP BY event.id`,
           )
           .get(),
@@ -198,7 +206,14 @@ describe("Last.fm API evidence persistence", () => {
       assert.equal(repeated.noOp, true);
       assert.equal(count(workspace, "source_record"), 2);
       assert.equal(count(workspace, "lastfm_scrobble_source"), 1);
-      assert.equal(count(workspace, "listening_event"), 1);
+      assert.equal(
+        workspace.connection
+          .prepare<CountRow>(
+            "SELECT count(*) AS count FROM listening_event WHERE event_status <> 'superseded'",
+          )
+          .get()?.count,
+        1,
+      );
       assert.equal(
         validateEvidenceLayer(workspace.connection, workspace.configuration.paths.inputsDirectory)
           .ok,

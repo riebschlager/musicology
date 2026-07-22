@@ -81,24 +81,31 @@ export async function runLastfmSyncCommand(
     schemaVersion,
     scopeFingerprintSha256,
   });
+  const window = lastfmSyncDryRunWindow(summary.plan);
+  const data: JsonObject = {
+    cursorBoundaryEpochMs: summary.cursorBoundaryEpochMs,
+    cursorUpdatePolicy: summary.cursorUpdatePolicy,
+    dryRun: summary.dryRun,
+    existing: summary.existing,
+    fetched: summary.fetched,
+    ignored: summary.ignored,
+    inserted: summary.inserted,
+    matched: summary.matched,
+    pages: summary.pages,
+    runId: summary.runId,
+    window: {
+      cursorUpdatePolicy: window.cursorUpdatePolicy,
+      fromEpochMs: window.fromEpochMs,
+      source: window.source,
+      toEpochMs: window.toEpochMs,
+    },
+  };
   return commandSuccess(
     commandName,
     options.dryRun
       ? "Last.fm synchronization dry run completed without persisting evidence or cursor state."
       : "Last.fm synchronization completed atomically.",
-    {
-      cursorBoundaryEpochMs: summary.cursorBoundaryEpochMs,
-      cursorUpdatePolicy: summary.cursorUpdatePolicy,
-      dryRun: summary.dryRun,
-      existing: summary.existing,
-      fetched: summary.fetched,
-      ignored: summary.ignored,
-      inserted: summary.inserted,
-      matched: summary.matched,
-      pages: summary.pages,
-      runId: summary.runId,
-      window: lastfmSyncDryRunWindow(summary.plan),
-    },
+    data,
   );
 }
 
@@ -167,13 +174,19 @@ async function main(): Promise<void> {
         }),
         configuration.lastfm.username,
         String(currentMigration.version),
-        {
-          dryRun: parsed.values["dry-run"],
-          fromEpochMs: parseEpoch(parsed.values.from),
-          initialFromEpochMs: parseEpoch(parsed.values["initial-from"]),
-          safetyOverlapMs: parseEpoch(parsed.values["safety-overlap-ms"]),
-          toEpochMs: parseEpoch(parsed.values.to),
-        },
+        (() => {
+          const fromEpochMs = parseEpoch(parsed.values.from);
+          const initialFromEpochMs = parseEpoch(parsed.values["initial-from"]);
+          const safetyOverlapMs = parseEpoch(parsed.values["safety-overlap-ms"]);
+          const toEpochMs = parseEpoch(parsed.values.to);
+          return {
+            dryRun: parsed.values["dry-run"],
+            ...(fromEpochMs === undefined ? {} : { fromEpochMs }),
+            ...(initialFromEpochMs === undefined ? {} : { initialFromEpochMs }),
+            ...(safetyOverlapMs === undefined ? {} : { safetyOverlapMs }),
+            ...(toEpochMs === undefined ? {} : { toEpochMs }),
+          };
+        })(),
       );
     }
   } catch (error) {

@@ -695,6 +695,13 @@ describe("evidence-layer validation", () => {
             code: IngestIssueCode.DuplicateRecord,
             sourceFingerprintSha256: evidence?.source_fingerprint_sha256 ?? "",
           });
+          context.connection
+            .prepare(
+              `INSERT INTO lastfm_api_sync_metadata
+                (ingest_run_id, page_count, completed_track_count, ignored_now_playing_count)
+               VALUES (?, 1, 1, 0)`,
+            )
+            .run([context.runId]);
         },
       );
       resolveSourceIdentities(workspace.connection, { now: () => 1_800_000_002_500 });

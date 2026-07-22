@@ -1,4 +1,4 @@
-import type { SqliteConnection, SqliteRow } from "../db/connection.ts";
+import type { SqliteConnection, SqliteParameters, SqliteRow } from "../db/connection.ts";
 import { collapseExactDuplicateEvents, createCanonicalEvents } from "../identity/events.ts";
 import { resolveSourceIdentities } from "../identity/resolution.ts";
 import {
@@ -149,6 +149,16 @@ function matchingEvidence(
     )
     .get([sourceFingerprintSha256]);
   if (exact !== undefined) return exact;
+  const matchingParameters: SqliteParameters = {
+    albumName: record.albumName,
+    artistMusicbrainzId: record.artistMusicbrainzId,
+    artistName: record.artistName,
+    loved: sqliteBoolean(record.loved),
+    recordingMusicbrainzId: record.recordingMusicbrainzId,
+    releaseMusicbrainzId: record.releaseMusicbrainzId,
+    scrobbledAtEpochMs: record.scrobbledAtEpochMs,
+    trackName: record.trackName,
+  };
   const candidates = connection
     .prepare<ExistingEvidenceRow>(
       `SELECT source_record_id, artist_musicbrainz_id, release_musicbrainz_id,
@@ -157,24 +167,48 @@ function matchingEvidence(
         WHERE artist_name = @artistName AND track_name = @trackName
           AND scrobbled_at_epoch_ms = @scrobbledAtEpochMs`,
     )
-    .all(record)
+    .all(matchingParameters)
     .filter((candidate) => noStrongIdentifierConflict(candidate, record));
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 
-function apiOccurrenceAlreadyPersisted(connection: SqliteConnection, fingerprint: string): boolean {
-  return (
-    connection
-      .prepare<SqliteRow>(
-        `SELECT 1 AS found
-           FROM lastfm_scrobble_occurrence AS occurrence
-           JOIN lastfm_scrobble_source AS evidence
-             ON evidence.source_record_id = occurrence.lastfm_scrobble_source_record_id
-          WHERE occurrence.source_origin = 'api' AND evidence.source_fingerprint_sha256 = ?
-          LIMIT 1`,
-      )
-      .get([fingerprint]) !== undefined
-  );
+function apiOccurrenceAlreadyPersisted(
+  connection: SqliteConnection,
+  record: LastfmScrobbleSourceRecord,
+  fingerprint: string,
+): boolean {
+  const exact = connection
+    .prepare<SqliteRow>(
+      `SELECT 1 AS found
+         FROM lastfm_scrobble_occurrence AS occurrence
+         JOIN lastfm_scrobble_source AS evidence
+           ON evidence.source_record_id = occurrence.lastfm_scrobble_source_record_id
+        WHERE occurrence.source_origin = 'api' AND evidence.source_fingerprint_sha256 = ?
+        LIMIT 1`,
+    )
+    .get([fingerprint]);
+  if (exact !== undefined) return true;
+
+  const matchingParameters: SqliteParameters = {
+    artistName: record.artistName,
+    scrobbledAtEpochMs: record.scrobbledAtEpochMs,
+    trackName: record.trackName,
+  };
+  const candidates = connection
+    .prepare<ExistingEvidenceRow>(
+      `SELECT evidence.source_record_id, evidence.artist_musicbrainz_id,
+              evidence.release_musicbrainz_id, evidence.recording_musicbrainz_id
+         FROM lastfm_scrobble_occurrence AS occurrence
+         JOIN lastfm_scrobble_source AS evidence
+           ON evidence.source_record_id = occurrence.lastfm_scrobble_source_record_id
+        WHERE occurrence.source_origin = 'api'
+          AND evidence.artist_name = @artistName
+          AND evidence.track_name = @trackName
+          AND evidence.scrobbled_at_epoch_ms = @scrobbledAtEpochMs`,
+    )
+    .all(matchingParameters)
+    .filter((candidate) => noStrongIdentifierConflict(candidate, record));
+  return candidates.length === 1;
 }
 
 /** Persists completed API pages and applies the shared identity and reconciliation pipeline. */
@@ -204,7 +238,7 @@ export function persistLastfmApiPages(
         for (const track of page.completedTracks) {
           const record = lastfmApiTrackToSourceRecord(track);
           const fingerprint = fingerprintLastfmScrobble(record);
-          if (apiOccurrenceAlreadyPersisted(context.connection, fingerprint)) continue;
+          if (apiOccurrenceAlreadyPersisted(context.connection, record, fingerprint)) continue;
           const existing = matchingEvidence(context.connection, record, fingerprint);
           const sourceRecordId = insertApiOccurrence(context.connection, context.runId);
           const evidenceSourceRecordId = existing?.source_record_id ?? sourceRecordId;
