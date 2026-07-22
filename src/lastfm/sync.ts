@@ -10,9 +10,7 @@ import type { LastfmRecentTracksPage, LastfmRecentTracksWindow } from "./client.
 
 /** The narrow fetch boundary required by synchronization orchestration. */
 export interface LastfmRecentTracksFetcher {
-  getRecentTracksPages(
-    window: LastfmRecentTracksWindow,
-  ): AsyncGenerator<LastfmRecentTracksPage>;
+  getRecentTracksPages(window: LastfmRecentTracksWindow): AsyncGenerator<LastfmRecentTracksPage>;
 }
 
 export interface SynchronizeLastfmOptions {
@@ -44,7 +42,9 @@ export interface LastfmSyncSummary {
  * validation failure cannot leave partial API evidence behind. Persistence, reconciliation, and
  * normal cursor advancement share the ingest transaction.
  */
-export async function synchronizeLastfm(options: SynchronizeLastfmOptions): Promise<LastfmSyncSummary> {
+export async function synchronizeLastfm(
+  options: SynchronizeLastfmOptions,
+): Promise<LastfmSyncSummary> {
   const pages: LastfmRecentTracksPage[] = [];
   const window: LastfmRecentTracksWindow = {
     fromEpochMs: options.plan.fromEpochMs,

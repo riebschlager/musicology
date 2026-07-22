@@ -141,21 +141,30 @@ async function main(): Promise<void> {
     });
     format = parsed.values.json ? "json" : "human";
     if (parsed.positionals.length > 0) {
-      result = usageFailure("The Last.fm synchronization command does not accept positional arguments.");
+      result = usageFailure(
+        "The Last.fm synchronization command does not accept positional arguments.",
+      );
     } else {
       const configuration = loadConfiguration({ repositoryRoot });
       sensitiveValues = configurationRedactionValues(configuration);
-      if (configuration.lastfm.apiKey === undefined || configuration.lastfm.username === undefined) {
+      if (
+        configuration.lastfm.apiKey === undefined ||
+        configuration.lastfm.username === undefined
+      ) {
         throw new LastfmConfigurationRequiredError();
       }
       if (!existsSync(configuration.paths.databasePath)) throw new DatabaseNotReadyError();
       connection = openSqliteConnection(configuration.paths.databasePath);
       const status = getMigrationStatus(connection, migrationsDirectory);
       const currentMigration = status.applied.at(-1);
-      if (currentMigration === undefined || status.pending.length > 0) throw new DatabaseNotReadyError();
+      if (currentMigration === undefined || status.pending.length > 0)
+        throw new DatabaseNotReadyError();
       result = await runLastfmSyncCommand(
         connection,
-        new LastfmClient({ apiKey: configuration.lastfm.apiKey, username: configuration.lastfm.username }),
+        new LastfmClient({
+          apiKey: configuration.lastfm.apiKey,
+          username: configuration.lastfm.username,
+        }),
         configuration.lastfm.username,
         String(currentMigration.version),
         {
@@ -169,13 +178,28 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     if (error instanceof ConfigurationError || error instanceof LastfmConfigurationRequiredError) {
-      result = commandFailure(commandName, ExitCode.ConfigurationError, "Configuration is invalid.", [
-        {
-          code: error instanceof LastfmConfigurationRequiredError ? "lastfm_credentials_required" : "configuration_invalid",
-          message: error instanceof LastfmConfigurationRequiredError ? error.message : "Configuration values are invalid.",
-        },
-      ]);
-    } else if (error instanceof LastfmSyncPlanError || error instanceof TypeError || error instanceof RangeError) {
+      result = commandFailure(
+        commandName,
+        ExitCode.ConfigurationError,
+        "Configuration is invalid.",
+        [
+          {
+            code:
+              error instanceof LastfmConfigurationRequiredError
+                ? "lastfm_credentials_required"
+                : "configuration_invalid",
+            message:
+              error instanceof LastfmConfigurationRequiredError
+                ? error.message
+                : "Configuration values are invalid.",
+          },
+        ],
+      );
+    } else if (
+      error instanceof LastfmSyncPlanError ||
+      error instanceof TypeError ||
+      error instanceof RangeError
+    ) {
       result = usageFailure("Last.fm synchronization arguments are invalid.");
     } else if (error instanceof MigrationError || error instanceof DatabaseNotReadyError) {
       result = commandFailure(commandName, ExitCode.DataError, "Database is not ready.", [
@@ -190,9 +214,12 @@ async function main(): Promise<void> {
         { code: error.code, message: error.safeSummary },
       ]);
     } else {
-      result = commandFailure(commandName, ExitCode.InternalError, "Last.fm synchronization failed.", [
-        { code: "internal_error", message: "An unexpected synchronization error occurred" },
-      ]);
+      result = commandFailure(
+        commandName,
+        ExitCode.InternalError,
+        "Last.fm synchronization failed.",
+        [{ code: "internal_error", message: "An unexpected synchronization error occurred" }],
+      );
     }
   } finally {
     connection?.close();

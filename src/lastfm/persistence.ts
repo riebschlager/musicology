@@ -97,7 +97,12 @@ function insertApiEvidence(
                @trackName, @artistMusicbrainzId, @releaseMusicbrainzId,
                @recordingMusicbrainzId, @loved, @sourceFingerprintSha256)`,
     )
-    .run({ ...record, loved: sqliteBoolean(record.loved), sourceFingerprintSha256, sourceRecordId });
+    .run({
+      ...record,
+      loved: sqliteBoolean(record.loved),
+      sourceFingerprintSha256,
+      sourceRecordId,
+    });
 }
 
 function linkApiOccurrence(
@@ -119,9 +124,15 @@ function noStrongIdentifierConflict(
   record: LastfmScrobbleSourceRecord,
 ): boolean {
   return (
-    (candidate.artist_musicbrainz_id === null || record.artistMusicbrainzId === null || candidate.artist_musicbrainz_id === record.artistMusicbrainzId) &&
-    (candidate.release_musicbrainz_id === null || record.releaseMusicbrainzId === null || candidate.release_musicbrainz_id === record.releaseMusicbrainzId) &&
-    (candidate.recording_musicbrainz_id === null || record.recordingMusicbrainzId === null || candidate.recording_musicbrainz_id === record.recordingMusicbrainzId)
+    (candidate.artist_musicbrainz_id === null ||
+      record.artistMusicbrainzId === null ||
+      candidate.artist_musicbrainz_id === record.artistMusicbrainzId) &&
+    (candidate.release_musicbrainz_id === null ||
+      record.releaseMusicbrainzId === null ||
+      candidate.release_musicbrainz_id === record.releaseMusicbrainzId) &&
+    (candidate.recording_musicbrainz_id === null ||
+      record.recordingMusicbrainzId === null ||
+      candidate.recording_musicbrainz_id === record.recordingMusicbrainzId)
   );
 }
 
@@ -172,7 +183,10 @@ export function persistLastfmApiPages(
 ): LastfmApiPersistenceSummary {
   const response = {
     completedTracks: options.pages.reduce((total, page) => total + page.completedTracks.length, 0),
-    ignoredNowPlaying: options.pages.reduce((total, page) => total + page.ignoredNowPlayingCount, 0),
+    ignoredNowPlaying: options.pages.reduce(
+      (total, page) => total + page.ignoredNowPlayingCount,
+      0,
+    ),
     pages: options.pages.length,
   };
   let pipeline: LastfmApiPersistenceSummary["pipeline"] | undefined;
@@ -186,25 +200,27 @@ export function persistLastfmApiPages(
       schemaVersion: options.schemaVersion,
     },
     (context) => {
-      for (const page of options.pages) for (const track of page.completedTracks) {
-        const record = lastfmApiTrackToSourceRecord(track);
-        const fingerprint = fingerprintLastfmScrobble(record);
-        if (apiOccurrenceAlreadyPersisted(context.connection, fingerprint)) continue;
-        const existing = matchingEvidence(context.connection, record, fingerprint);
-        const sourceRecordId = insertApiOccurrence(context.connection, context.runId);
-        const evidenceSourceRecordId = existing?.source_record_id ?? sourceRecordId;
-        if (existing === undefined) insertApiEvidence(context.connection, sourceRecordId, record, fingerprint);
-        linkApiOccurrence(context.connection, sourceRecordId, evidenceSourceRecordId);
-        context.recordOutcome(
-          existing === undefined
-            ? { kind: "accepted", sourceFingerprintSha256: fingerprint }
-            : {
-                kind: "duplicate",
-                code: IngestIssueCode.DuplicateRecord,
-                sourceFingerprintSha256: fingerprint,
-              },
-        );
-      }
+      for (const page of options.pages)
+        for (const track of page.completedTracks) {
+          const record = lastfmApiTrackToSourceRecord(track);
+          const fingerprint = fingerprintLastfmScrobble(record);
+          if (apiOccurrenceAlreadyPersisted(context.connection, fingerprint)) continue;
+          const existing = matchingEvidence(context.connection, record, fingerprint);
+          const sourceRecordId = insertApiOccurrence(context.connection, context.runId);
+          const evidenceSourceRecordId = existing?.source_record_id ?? sourceRecordId;
+          if (existing === undefined)
+            insertApiEvidence(context.connection, sourceRecordId, record, fingerprint);
+          linkApiOccurrence(context.connection, sourceRecordId, evidenceSourceRecordId);
+          context.recordOutcome(
+            existing === undefined
+              ? { kind: "accepted", sourceFingerprintSha256: fingerprint }
+              : {
+                  kind: "duplicate",
+                  code: IngestIssueCode.DuplicateRecord,
+                  sourceFingerprintSha256: fingerprint,
+                },
+          );
+        }
       context.connection
         .prepare(
           `INSERT INTO lastfm_api_sync_metadata
@@ -222,7 +238,8 @@ export function persistLastfmApiPages(
       pipeline = {
         canonicalEvents: events.processed,
         candidatePairs: candidates.inserted,
-        exactDuplicatesCollapsed: duplicates.spotifyEventsCollapsed + duplicates.lastfmEventsCollapsed,
+        exactDuplicatesCollapsed:
+          duplicates.spotifyEventsCollapsed + duplicates.lastfmEventsCollapsed,
         identitiesResolved: identities.resolved,
         matchFeatures: features.inserted,
       };

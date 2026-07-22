@@ -18,7 +18,10 @@ interface CountRow extends SqliteRow {
 const scopeFingerprintSha256 = fingerprintLastfmSyncScope("synthetic-sync-listener");
 
 function count(workspace: TemporaryTestWorkspace, table: string): number {
-  return workspace.connection.prepare<CountRow>(`SELECT count(*) AS count FROM ${table}`).get()?.count ?? -1;
+  return (
+    workspace.connection.prepare<CountRow>(`SELECT count(*) AS count FROM ${table}`).get()?.count ??
+    -1
+  );
 }
 
 function page() {
@@ -49,7 +52,11 @@ function fetcher(pages: readonly ReturnType<typeof page>[]): LastfmRecentTracksF
   };
 }
 
-function sync(workspace: TemporaryTestWorkspace, target: LastfmRecentTracksFetcher, dryRun = false) {
+function sync(
+  workspace: TemporaryTestWorkspace,
+  target: LastfmRecentTracksFetcher,
+  dryRun = false,
+) {
   const plan = planLastfmSync(workspace.connection, {
     initialFromEpochMs: 0,
     scopeFingerprintSha256,
@@ -126,7 +133,12 @@ describe("Last.fm synchronization orchestration", () => {
     await withTemporaryTestWorkspace(async (workspace) => {
       const summary = await sync(workspace, fetcher([page()]), true);
       assert.deepEqual(
-        { fetched: summary.fetched, ignored: summary.ignored, inserted: summary.inserted, runId: summary.runId },
+        {
+          fetched: summary.fetched,
+          ignored: summary.ignored,
+          inserted: summary.inserted,
+          runId: summary.runId,
+        },
         { fetched: 1, ignored: 1, inserted: 0, runId: null },
       );
       assert.equal(count(workspace, "ingest_run"), 0);
@@ -139,7 +151,13 @@ describe("Last.fm synchronization orchestration", () => {
     await withTemporaryTestWorkspace(async (workspace) => {
       const first = await sync(workspace, fetcher([page()]));
       assert.deepEqual(
-        { existing: first.existing, fetched: first.fetched, ignored: first.ignored, inserted: first.inserted, matched: first.matched },
+        {
+          existing: first.existing,
+          fetched: first.fetched,
+          ignored: first.ignored,
+          inserted: first.inserted,
+          matched: first.matched,
+        },
         { existing: 0, fetched: 1, ignored: 1, inserted: 1, matched: 0 },
       );
       assert.equal(first.cursorBoundaryEpochMs, page().completedTracks[0].scrobbledAtEpochMs);
