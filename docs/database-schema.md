@@ -20,10 +20,20 @@ no reconstructable value rather than fabricating a default.
 It preserves each scored candidate feature snapshot while recording the active or superseded
 automatic, review, and ignore outcome. Automatic decisions retain source and target event IDs and
 the prior source-event status so a later policy can reverse and supersede a merge transactionally.
+`migrations/0011_add_lastfm_api_sync_metadata.sql` adds one aggregate-only response-metadata row
+per Last.fm API sync run: page count, completed-track count, and ignored now-playing count. Its
+foreign key and triggers permit only `lastfm_api_sync` runs to own that metadata (including a
+running run inside the persistence transaction); changing that run to another command type is also
+rejected. The table deliberately stores no account identifier, URL, API key, or response body.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately
 contains no speculative materialized analysis tables.
+
+`sync_cursor` stores the last wholly successful Last.fm API boundary per one-way account-scope
+fingerprint. It references the successful ingest run that established the boundary; P3-04's
+planning boundary enforces monotonic updates so bounded recovery work cannot regress normal sync
+state.
 
 ## Ingest lifecycle counts
 
@@ -81,4 +91,5 @@ the entity and source tables; normalized aliases are separate and versioned.
 The schema stores only projected, approved fields. It has no columns for IP addresses, account
 names, user-agent strings, Spotify country or platform/device context, secrets or API keys, or raw
 rejected payloads. `rejected_source_record.safe_diagnostic_summary` may contain only a sanitized
-description and error code. Last.fm cursor scope is a one-way fingerprint rather than account text.
+description and error code. Last.fm cursor scope is a one-way fingerprint rather than account text;
+API sync metadata retains only aggregate response counts.

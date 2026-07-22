@@ -74,8 +74,23 @@ export function withTemporaryTestWorkspace<T>(
 ): T {
   const workspace = createTemporaryTestWorkspace();
   try {
-    return operation(workspace);
-  } finally {
+    const result = operation(workspace);
+    if (isPromiseLike(result)) {
+      return result.finally(() => workspace.cleanup()) as T;
+    }
     workspace.cleanup();
+    return result;
+  } catch (error) {
+    workspace.cleanup();
+    throw error;
   }
+}
+
+function isPromiseLike<T>(value: T): value is T & Promise<unknown> {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function") &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
 }

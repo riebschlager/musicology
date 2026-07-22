@@ -13,18 +13,20 @@ not redirect private inputs or generated output accidentally.
 | `MUSICOLOGY_INPUTS_DIR` | `<data>/inputs` | Immutable private source files |
 | `MUSICOLOGY_DATABASE_PATH` | `<data>/database/musicology.sqlite3` | Generated SQLite database |
 | `MUSICOLOGY_OUTPUTS_DIR` | `<data>/outputs` | Generated reports and exchange files |
-| `LASTFM_USERNAME` | unset | Optional Last.fm account for future synchronization |
-| `LASTFM_API_KEY` | unset | Optional Last.fm API secret for future synchronization |
+| `LASTFM_USERNAME` | unset | Optional Last.fm account for `sync:lastfm` synchronization |
+| `LASTFM_API_KEY` | unset | Optional Last.fm API secret for `sync:lastfm` synchronization |
 
 Relative path overrides are resolved from the repository root. Absolute overrides remain absolute.
 Changing `MUSICOLOGY_DATA_DIR` also moves the three default child paths; an explicit child override
 takes precedence. The loader validates timezones, paths, and configured Last.fm values before a
 command performs work. Error messages identify the variable but never repeat its supplied value.
 
-Last.fm values are optional at the project level because most commands do not use the API. A future
-Last.fm synchronization command must separately require both values at its own boundary. Commands
-must pass configured Last.fm values to the result renderer as redaction values before producing
-console output.
+Last.fm values are optional at the project level because most commands do not use the API.
+`sync:lastfm` requires both values at its own boundary. Commands must pass configured Last.fm
+values to the result renderer as redaction values before producing console output.
+
+The P3-01 API client boundary is documented in
+[`lastfm-api-client.md`](lastfm-api-client.md).
 
 ## Command results and exit codes
 
@@ -109,7 +111,9 @@ or its parent directories, and validation never changes journal mode. It verifie
 file against the bytes at its configured evidence path, reconciles ingest-run totals with persisted
 evidence, validates file/record/run ownership, validates ordinal ranges and excluded-record gaps,
 recomputes approved record fingerprints, checks Last.fm occurrence links, validates fixed rejection
-codes and summaries, and validates status-compatible ingest-run error summaries before running
+codes and summaries, validates status-compatible ingest-run error summaries, and checks Last.fm API
+cursor/run metadata (including that a non-empty run's cursor boundary matches its latest completed
+scrobble) plus API/export overlap provenance before running
 SQLite integrity and foreign-key checks. Errors identify only safe database IDs, counts, and
 invariant names; they never return paths, display text, hashes, stored diagnostic text, or raw source
 records.

@@ -10,12 +10,20 @@ import type {
   SqliteRow,
   TransactionMode,
 } from "../../../src/db/connection.ts";
-import { IngestIssueCode, IngestIssueSummary } from "../../../src/importers/contracts.ts";
+import {
+  IngestIssueCode,
+  IngestIssueSummary,
+  SourceEvidenceIngestCommand,
+} from "../../../src/importers/contracts.ts";
 import { fingerprintLastfmScrobble } from "../../../src/importers/lastfm-export/boundary.ts";
 import { importLastfmExportFiles } from "../../../src/importers/lastfm-export/persistence.ts";
+import { runIngestLifecycle } from "../../../src/importers/lifecycle.ts";
 import { importSpotifyFiles } from "../../../src/importers/spotify/persistence.ts";
 import { createCanonicalEvents } from "../../../src/identity/events.ts";
 import { resolveSourceIdentities } from "../../../src/identity/resolution.ts";
+import { persistLastfmApiPages } from "../../../src/lastfm/persistence.ts";
+import { fingerprintLastfmSyncScope, planLastfmSync } from "../../../src/lastfm/sync-plan.ts";
+import { synchronizeLastfm } from "../../../src/lastfm/sync.ts";
 import { validateEvidenceLayer } from "../../../src/validation/evidence.ts";
 import {
   buildLastfmScrobbleFixture,
@@ -64,6 +72,188 @@ function importValidSyntheticEvidence(workspace: TemporaryTestWorkspace): {
 }
 
 describe("evidence-layer validation", () => {
+  it("validates API sync cursor metadata and API/export overlap provenance without exposing private values", async () => {
+    await withTemporaryTestWorkspace(async (workspace) => {
+      const scopeFingerprintSha256 = fingerprintLastfmSyncScope("synthetic-validation-listener");
+      const scrobble = buildLastfmScrobbleFixture();
+      const page = {
+        completedTracks: [
+          {
+            albumName: scrobble.album_name,
+            artistMusicbrainzId: scrobble.artist_musicbrainz_id,
+            artistName: scrobble.artist_name,
+            loved: scrobble.loved,
+            recordingMusicbrainzId: scrobble.recording_musicbrainz_id,
+            releaseMusicbrainzId: scrobble.release_musicbrainz_id,
+            scrobbledAtEpochMs: scrobble.timestamp,
+            trackName: scrobble.track_name,
+          },
+        ],
+        ignoredNowPlayingCount: 0,
+        pagination: { page: 1, perPage: 1, total: 1, totalPages: 1 },
+      } as const;
+      await synchronizeLastfm({
+        connection: workspace.connection,
+        fetcher: {
+          async *getRecentTracksPages() {
+            yield page;
+          },
+        },
+        now: () => 2_000_000_000_000,
+        plan: planLastfmSync(workspace.connection, {
+          initialFromEpochMs: 0,
+          scopeFingerprintSha256,
+        }),
+        schemaVersion: "11",
+        scopeFingerprintSha256,
+      });
+
+      assert.equal(
+        validateEvidenceLayer(workspace.connection, workspace.configuration.paths.inputsDirectory)
+          .ok,
+        true,
+      );
+
+      workspace.connection
+        .prepare("UPDATE sync_cursor SET boundary_epoch_ms = boundary_epoch_ms - 1")
+        .run();
+      const boundaryValidation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(boundaryValidation.ok, false);
+      assert.ok(
+        boundaryValidation.errors.some((error) => error.code === "lastfm_sync_cursor_invalid"),
+      );
+      assert.equal(JSON.stringify(boundaryValidation).includes(PRIVATE_SENTINEL), false);
+
+      workspace.connection
+        .prepare("UPDATE sync_cursor SET boundary_epoch_ms = ?")
+        .run([scrobble.timestamp]);
+      workspace.connection
+        .prepare(
+          `UPDATE ingest_run
+             SET completed_at_epoch_ms = completed_at_epoch_ms + 1
+           WHERE id = (SELECT last_successful_ingest_run_id FROM sync_cursor LIMIT 1)`,
+        )
+        .run();
+      const cursorValidation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(cursorValidation.ok, false);
+      assert.ok(
+        cursorValidation.errors.some((error) => error.code === "lastfm_sync_cursor_invalid"),
+      );
+      assert.equal(JSON.stringify(cursorValidation).includes(PRIVATE_SENTINEL), false);
+    });
+
+    withTemporaryTestWorkspace((workspace) => {
+      const exportPath = workspace.writeJsonFixture("lastfm/history.json", [
+        buildLastfmScrobbleFixture(),
+      ]);
+      importLastfmExportFiles({
+        candidatePaths: [exportPath],
+        connection: workspace.connection,
+        evidenceRoot: workspace.configuration.paths.inputsDirectory,
+        now: () => 10_000,
+        schemaVersion: "11",
+      });
+      const exported = buildLastfmScrobbleFixture();
+      persistLastfmApiPages({
+        connection: workspace.connection,
+        now: () => 20_000,
+        pages: [
+          {
+            completedTracks: [
+              {
+                albumName: exported.album_name,
+                artistMusicbrainzId: exported.artist_musicbrainz_id,
+                artistName: exported.artist_name,
+                loved: exported.loved,
+                recordingMusicbrainzId: exported.recording_musicbrainz_id,
+                releaseMusicbrainzId: exported.release_musicbrainz_id,
+                scrobbledAtEpochMs: exported.timestamp,
+                trackName: exported.track_name,
+              },
+            ],
+            ignoredNowPlayingCount: 0,
+            pagination: { page: 1, perPage: 1, total: 1, totalPages: 1 },
+          },
+        ],
+        schemaVersion: "11",
+      });
+      const distinct = buildLastfmScrobbleFixture({
+        timestamp: exported.timestamp + 1_000,
+        track_name: "A distinct synthetic API scrobble",
+      });
+      persistLastfmApiPages({
+        connection: workspace.connection,
+        now: () => 21_000,
+        pages: [
+          {
+            completedTracks: [
+              {
+                albumName: distinct.album_name,
+                artistMusicbrainzId: distinct.artist_musicbrainz_id,
+                artistName: distinct.artist_name,
+                loved: distinct.loved,
+                recordingMusicbrainzId: distinct.recording_musicbrainz_id,
+                releaseMusicbrainzId: distinct.release_musicbrainz_id,
+                scrobbledAtEpochMs: distinct.timestamp,
+                trackName: distinct.track_name,
+              },
+            ],
+            ignoredNowPlayingCount: 0,
+            pagination: { page: 1, perPage: 1, total: 1, totalPages: 1 },
+          },
+        ],
+        schemaVersion: "11",
+      });
+      workspace.connection
+        .prepare(
+          `UPDATE lastfm_scrobble_occurrence
+              SET lastfm_scrobble_source_record_id = (
+                SELECT source_record_id
+                  FROM lastfm_scrobble_source
+                 WHERE source_origin = 'api'
+                 ORDER BY source_record_id DESC
+                 LIMIT 1
+              )
+            WHERE source_origin = 'api'
+              AND source_record_id <> lastfm_scrobble_source_record_id`,
+        )
+        .run();
+
+      const apiLinkValidation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(apiLinkValidation.ok, false);
+      assert.ok(
+        apiLinkValidation.errors.some(
+          (error) => error.code === "lastfm_api_export_overlap_invalid",
+        ),
+      );
+      workspace.connection
+        .prepare(
+          "UPDATE lastfm_scrobble_occurrence SET source_origin = 'export' WHERE source_origin = 'api'",
+        )
+        .run();
+
+      const overlapValidation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(overlapValidation.ok, false);
+      assert.ok(
+        overlapValidation.errors.some(
+          (error) => error.code === "lastfm_api_export_overlap_invalid",
+        ),
+      );
+    });
+  });
+
   it("passes valid deterministic synthetic imports and reports archive deviations as findings", () => {
     withTemporaryTestWorkspace((workspace) => {
       importValidSyntheticEvidence(workspace);
@@ -465,6 +655,67 @@ describe("evidence-layer validation", () => {
         workspace.configuration.paths.inputsDirectory,
       );
       assert.ok(validation.errors.some((error) => error.code === "lastfm_occurrence_invalid"));
+    });
+  });
+
+  it("allows an API occurrence to reuse export-backed Last.fm evidence", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      importValidSyntheticEvidence(workspace);
+      const evidence = workspace.connection
+        .prepare<{
+          readonly source_fingerprint_sha256: string;
+          readonly source_record_id: number;
+        }>("SELECT source_record_id, source_fingerprint_sha256 FROM lastfm_scrobble_source")
+        .get();
+      assert.notEqual(evidence, undefined);
+
+      runIngestLifecycle(
+        {
+          commandType: SourceEvidenceIngestCommand.LastfmApi,
+          connection: workspace.connection,
+          now: () => 1_800_000_002_000,
+          schemaVersion: "11",
+        },
+        (context) => {
+          const occurrence = context.connection
+            .prepare(
+              `INSERT INTO source_record (source_kind, ingest_run_id, accepted_at_epoch_ms)
+               VALUES ('lastfm', ?, ?)`,
+            )
+            .run([context.runId, 1_800_000_002_000]);
+          context.connection
+            .prepare(
+              `INSERT INTO lastfm_scrobble_occurrence
+                (source_record_id, lastfm_scrobble_source_record_id, source_origin)
+               VALUES (?, ?, 'api')`,
+            )
+            .run([Number(occurrence.lastInsertRowid), evidence?.source_record_id ?? 0]);
+          context.recordOutcome({
+            kind: "duplicate",
+            code: IngestIssueCode.DuplicateRecord,
+            sourceFingerprintSha256: evidence?.source_fingerprint_sha256 ?? "",
+          });
+          context.connection
+            .prepare(
+              `INSERT INTO lastfm_api_sync_metadata
+                (ingest_run_id, page_count, completed_track_count, ignored_now_playing_count)
+               VALUES (?, 1, 1, 0)`,
+            )
+            .run([context.runId]);
+        },
+      );
+      resolveSourceIdentities(workspace.connection, { now: () => 1_800_000_002_500 });
+      createCanonicalEvents(workspace.connection);
+
+      const validation = validateEvidenceLayer(
+        workspace.connection,
+        workspace.configuration.paths.inputsDirectory,
+      );
+      assert.equal(validation.ok, true);
+      assert.equal(
+        validation.errors.some((error) => error.code === "lastfm_occurrence_invalid"),
+        false,
+      );
     });
   });
 
