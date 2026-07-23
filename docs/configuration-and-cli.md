@@ -167,6 +167,116 @@ The comparison is opt-in, reports aggregate deviations without failing the comma
 of CI. Input paths and source display values are omitted; input hashes are included because they are
 the explicit evidence identity required by the report contract.
 
+## Listening-volume analysis
+
+Analyze canonical listening volume from an existing, fully migrated database:
+
+```sh
+pnpm analyze:volume
+pnpm analyze:volume --json --grain month --metric listened_ms
+pnpm analyze:volume --grain day --metric play_count_at_least_ms --minimum-duration-ms 30000 --from 2024-01-01T00:00:00.000Z --to 2024-02-01T00:00:00.000Z
+```
+
+The default `play_count` includes every canonical track event. `listened_ms` is explicitly
+Spotify-backed only; it does not estimate duration for Last.fm-only events. The optional
+`play_count_at_least_ms` is separately named and requires Spotify duration evidence. `--from` and
+`--to` must be paired canonical UTC timestamps. `--rolling-window-periods` controls the rolling
+derivation, and `--exclude-unresolved` omits unresolved canonical events. Human output is concise;
+`--json` returns the versioned analytical envelope with coverage and parameter disclosures.
+
+## Artist-era analysis
+
+Analyze calendar-aligned, explainable artist eras from the current and unresolved canonical event
+history:
+
+```sh
+pnpm analyze:artist-eras
+pnpm analyze:artist-eras --json --window-size-months 1 --rolling-window-count 2
+pnpm analyze:artist-eras --minimum-window-play-count 5 --minimum-rolling-play-count 20 --minimum-listening-share 0.03
+```
+
+The command is read-only and requires a fully migrated existing database. It accepts every
+documented P4-04 era parameter as an explicit flag: window size, rolling window count, minimum
+current and rolling plays, share, rank, consecutive active windows, and earlier-baseline change.
+Human output is concise; `--json` emits the versioned analytical envelope. Results include only
+canonical artist identity and aggregated component evidence—never raw source records, paths, or
+private source fields.
+
+## Rediscovery analysis
+
+Analyze artist or track returns after a configurable absence from the current and unresolved
+canonical history:
+
+```sh
+pnpm analyze:rediscovery
+pnpm analyze:rediscovery --json --absence-threshold-days 90
+pnpm analyze:rediscovery --scope track --absence-threshold-days 365 --minimum-prior-play-count 3
+```
+
+The read-only command requires a fully migrated existing database. It accepts explicit flags for
+the scope, absence threshold, prior-importance count, return window/intensity threshold, and
+persistence window/count. JSON returns the versioned analytical envelope; human output is concise.
+Results disclose whether a current return's persistence window remains open, and contain canonical
+identity plus aggregate return evidence only—never raw source records, paths, or private fields.
+
+## Abandonment analysis
+
+Analyze historically important artists with former cadence that has not reappeared in the observable
+canonical history:
+
+```sh
+pnpm analyze:abandonment
+pnpm analyze:abandonment --json --dormancy-days 90 --observation-window-days 365
+pnpm analyze:abandonment --as-of 2025-01-01T00:00:00.000Z
+```
+
+The read-only command requires a fully migrated existing database. It accepts explicit flags for
+historical importance, former cadence, active-period gap, dormancy, likely-abandonment, and
+observation-window thresholds. `--as-of` is an optional canonical UTC timestamp no later than the
+latest canonical event, so historical conclusions can be reproduced. Results contain only
+canonical artist identity and aggregate evidence. They report `dormant` or
+`likely_abandoned_as_of`, never a permanent abandonment fact; a later rediscovery invalidates a
+later as-of conclusion while preserving earlier generated results. A likely-abandonment conclusion
+requires both its configured duration threshold and the independent observation-window threshold.
+
+## Analytical exports
+
+Create the fixed, versioned analytical-data bundle for a future local web layer:
+
+```sh
+pnpm export:analytics
+pnpm export:analytics --json
+pnpm export:analytics --check
+```
+
+The command reads a current migrated database and writes `analytics-v1` under
+`MUSICOLOGY_OUTPUTS_DIR`. Its manifest is written last and lists deterministic content hashes for
+five artifacts: volume, artist eras, rediscovery, abandonment, and aggregate coverage. Each artifact
+carries its schema version, the applied migration checksums, and a canonical-state fingerprint. The
+fingerprint includes analytical inputs and aggregate coverage, so `--check` rejects a bundle after a
+database, migration, or relevant rule/data change. Re-running with unchanged data produces equivalent
+artifact content. `--check` also compares each artifact with the current deterministic analytical
+contract. Outputs contain analytical envelopes, aggregate coverage, canonical identities, and
+aggregate evidence only; they never include raw source tables, input paths, raw records, excluded
+source fields, secrets, or account usernames. Generated outputs remain ignored by Git.
+
+## Analytics validation and performance check
+
+Run all four analytical families against the same read-only database snapshot and reconcile each
+analysis's canonical event count to the aggregate coverage report:
+
+```sh
+pnpm benchmark:analytics
+pnpm benchmark:analytics --json
+```
+
+The command reports only aggregate canonical-event counts and elapsed milliseconds for volume,
+artist eras, rediscovery, and abandonment. It does not impose a CI time budget because local
+hardware and SQLite cache state vary; use it to compare representative local archive runs after a
+material query or analytical-contract change. A count mismatch fails with a safe data error. The
+P4-09 archive findings and interpretation cautions are recorded in
+[`phase-4-analytics-validation.md`](phase-4-analytics-validation.md).
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:
