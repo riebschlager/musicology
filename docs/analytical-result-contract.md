@@ -164,3 +164,33 @@ pnpm analyze:artist-eras
 pnpm analyze:artist-eras --json --window-size-months 1 --rolling-window-count 2
 pnpm analyze:artist-eras --minimum-window-play-count 5 --minimum-listening-share 0.03
 ```
+
+## Rediscovery analysis
+
+P4-06 provides `generateRediscoveryAnalysis` and the read-only `analyze:rediscovery` command.
+A rediscovery is an artist or track return after an exact UTC-time absence of at least
+`absenceThresholdDays`, provided it has at least `minimumPriorPlayCount` earlier canonical plays.
+The default threshold is 180 days; 90- and 365-day scenarios are supported explicitly through the
+same positive-integer parameter (up to 3,650 days). The default scope is `artist`; `track` is also
+supported. The analysis uses only current and unresolved canonical events, so a reconciled
+Spotify/Last.fm event is counted once.
+
+`returnIntensity` is the entity's play count from the return instant through the exclusive
+`returnWindowDays` boundary (default: 30 days). `persistencePlayCount` is the count in the following
+exclusive `persistenceWindowDays` boundary (default: 90 days). A completed persistence window with
+at least `minimumPersistencePlayCount` (default: 2) is a `sustained_rediscovery`; a completed
+window below that threshold is a `one_off_return`. If the history does not extend through that
+boundary, persistence is `open` and the otherwise provisional one-off classification remains
+explicitly marked rather than being treated as observed non-persistence.
+
+An artist return is classified `return_beginning_new_era` when an artist-era interval begins in the
+return/persistence observation horizon. The related interval's calendar bounds are included. The
+result never exposes source rows, paths, raw timestamps beyond aggregate return/prior instants, or
+private source fields. Each record includes its prior listen, prior count, exact gap length, return
+intensity, persistence state/count, related era, scope, and the complete parameter envelope.
+
+```sh
+pnpm analyze:rediscovery
+pnpm analyze:rediscovery --json --absence-threshold-days 90
+pnpm analyze:rediscovery --scope track --absence-threshold-days 365 --minimum-prior-play-count 3
+```

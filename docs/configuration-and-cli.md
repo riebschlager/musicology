@@ -202,6 +202,23 @@ Human output is concise; `--json` emits the versioned analytical envelope. Resul
 canonical artist identity and aggregated component evidence—never raw source records, paths, or
 private source fields.
 
+## Rediscovery analysis
+
+Analyze artist or track returns after a configurable absence from the current and unresolved
+canonical history:
+
+```sh
+pnpm analyze:rediscovery
+pnpm analyze:rediscovery --json --absence-threshold-days 90
+pnpm analyze:rediscovery --scope track --absence-threshold-days 365 --minimum-prior-play-count 3
+```
+
+The read-only command requires a fully migrated existing database. It accepts explicit flags for
+the scope, absence threshold, prior-importance count, return window/intensity threshold, and
+persistence window/count. JSON returns the versioned analytical envelope; human output is concise.
+Results disclose whether a current return's persistence window remains open, and contain canonical
+identity plus aggregate return evidence only—never raw source records, paths, or private fields.
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:
