@@ -80,3 +80,66 @@ display values are emitted.
 An unbounded selection with no canonical events returns an empty `rows` array and `null` for both
 `dateRange` and `asOf`; it never fabricates a historical zero period. A bounded selection still
 emits every requested period, including zero-value periods.
+
+## Artist-era components
+
+P4-04 fixes the versioned artist-era parameter and component contract in
+`src/analytics/artist-era.ts`. P4-05 will calculate calendar windows and assemble intervals from
+this contract; it must not silently reinterpret a parameter or component below.
+
+Windows are calendar-aligned periods in the explicit presentation timezone. Every cadence is
+anchored at January 1970: starting at that month, each window spans exactly
+`windowSizeMonths` consecutive calendar months. This supplies a continuous, reproducible cadence
+for every supported size and avoids a short year-end window. The default three-month window is
+therefore aligned to January/April/July/October. For example, with a five-month window, February
+2026 belongs to the window beginning November 2025 and June 2026 belongs to the window beginning
+April 2026. A rolling value covers the current window and the three preceding windows
+(`rollingWindowCount: 4`), so the default describes the trailing twelve calendar months. Missing
+windows inside observed history contribute zero plays. The equal-length earlier baseline is the
+immediately preceding, non-overlapping rolling span; it is `null`, rather than zero, when it is not
+observable.
+
+The defaults below were inspected against deterministic synthetic histories: two total plays with
+a 100% share do not qualify, while the exact threshold boundary does. They favor a readable
+year-scale era while retaining artists with a moderate decline. All values are configurable within
+the supported ranges below; the caps keep each calendar cadence and its derived rolling analysis
+bounded. Accepted values will be included in the P4-05 result envelope.
+
+| Parameter | Default | Supported range | Meaning |
+| --- | ---: | --- | --- |
+| `windowSizeMonths` | 3 | Positive integer, at most 12 | Calendar months per aligned activity window. |
+| `rollingWindowCount` | 4 | Positive integer, at most 24 | Consecutive windows in each trailing rolling count. |
+| `minimumWindowPlayCount` | 3 | Positive safe integer | Plays required in the current window. |
+| `minimumRollingPlayCount` | 12 | Positive safe integer | Plays required across the rolling window. |
+| `minimumListeningShare` | 0.02 | Finite number greater than 0 and at most 1 | Artist's rolling plays divided by all canonical rolling plays. |
+| `maximumRank` | 20 | Positive integer, at most 100,000 | Dense rank by rolling plays; ties receive the same rank. |
+| `minimumConsecutiveActiveWindows` | 2 | Positive integer, at most 100 | Adjacent current windows meeting the two play-count gates. |
+| `minimumEarlierBaselineChange` | -12 | Safe integer | Minimum `rollingPlayCount - earlierBaselineRollingPlayCount` when a baseline is observable. |
+
+For each artist/window, P4-05 must preserve `windowPlayCount`, `rollingPlayCount`,
+`listeningShare`, `rank`, `consecutiveActiveWindows`, `earlierBaselineRollingPlayCount`, and
+`earlierBaselineChange`. A window qualifies only when the two count gates, share, rank,
+consecutive-activity, and (when known) earlier-baseline gates all pass. An unavailable earlier
+baseline is reported as `null` and does not become invented zero activity or fail that one gate.
+
+`strength` is an explainable 0–1 mean of known capped component ratios: current-window plays,
+rolling plays, share, inverse rank, consecutive activity, and, when available, baseline change.
+Each count/share/activity ratio caps at its corresponding minimum; inverse rank is
+`(maximumRank + 1 - rank) / maximumRank`, capped to 0–1; baseline change is
+`(earlierBaselineChange - minimumEarlierBaselineChange) / minimumRollingPlayCount`, capped to
+0–1. A missing baseline is omitted from this mean, not scored as zero.
+
+For reproducible sensitivity examples, the default evaluator produces the following results:
+
+| Synthetic window | Relevant values | Result |
+| --- | --- | --- |
+| Low-volume dominance | 2 current/rolling plays, 100% share, rank 1, 2 consecutive windows, baseline 0 | Does not qualify because both absolute play-count gates fail. |
+| Exact boundary | 3 current plays, 12 rolling, 2% share, rank 20, 2 consecutive, earlier baseline 24 | Qualifies: its baseline change is exactly -12 and its strength is `0.6749999999999999`. |
+| New, observable activity | 4 current plays, 16 rolling, 4% share, rank 5, 2 consecutive, unavailable baseline | Qualifies without inventing earlier activity; baseline change remains `null` and strength is `0.96`. |
+
+An eventual interval has an inclusive first qualifying window start and exclusive last qualifying
+window end; its peak is the qualifying window with greatest strength (then greatest rolling count,
+then earliest start). Its `playCount` is the sum of current-window plays, its `share` is the mean
+window share, and its evidence contains the component values and baseline availability for every
+qualifying window. This preserves the explanation for a result without emitting source evidence or
+artist/track payloads beyond the canonical analytical identity required by P4-05.
