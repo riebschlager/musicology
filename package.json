@@ -17,6 +17,7 @@
     "analyze:rediscovery": "node src/cli/analyze-rediscovery.ts",
     "db:migrate": "node src/cli/db.ts migrate",
     "db:status": "node src/cli/db.ts status",
+    "export:analytics": "node src/cli/export-analytics.ts",
     "export:reconciliation-calibration": "node src/cli/export-reconciliation-calibration.ts",
     "format": "biome format --write .",
     "format:check": "biome format .",

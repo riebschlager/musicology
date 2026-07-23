@@ -239,6 +239,27 @@ canonical artist identity and aggregate evidence. They report `dormant` or
 later as-of conclusion while preserving earlier generated results. A likely-abandonment conclusion
 requires both its configured duration threshold and the independent observation-window threshold.
 
+## Analytical exports
+
+Create the fixed, versioned analytical-data bundle for a future local web layer:
+
+```sh
+pnpm export:analytics
+pnpm export:analytics --json
+pnpm export:analytics --check
+```
+
+The command reads a current migrated database and writes `analytics-v1` under
+`MUSICOLOGY_OUTPUTS_DIR`. Its manifest is written last and lists deterministic content hashes for
+five artifacts: volume, artist eras, rediscovery, abandonment, and aggregate coverage. Each artifact
+carries its schema version, the applied migration checksums, and a canonical-state fingerprint. The
+fingerprint includes analytical inputs and aggregate coverage, so `--check` rejects a bundle after a
+database, migration, or relevant rule/data change. Re-running with unchanged data produces equivalent
+artifact content. `--check` also compares each artifact with the current deterministic analytical
+contract. Outputs contain analytical envelopes, aggregate coverage, canonical identities, and
+aggregate evidence only; they never include raw source tables, input paths, raw records, excluded
+source fields, secrets, or account usernames. Generated outputs remain ignored by Git.
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:
