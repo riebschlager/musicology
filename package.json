@@ -9,6 +9,10 @@
     "pnpm": ">=9 <10"
   },
   "packageManager": "pnpm@9.0.0",
+  "volta": {
+    "node": "24.0.0",
+    "pnpm": "9.0.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "analyze:volume": "node --env-file-if-exists=.env src/cli/analyze-volume.ts",
