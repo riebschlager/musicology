@@ -194,3 +194,32 @@ pnpm analyze:rediscovery
 pnpm analyze:rediscovery --json --absence-threshold-days 90
 pnpm analyze:rediscovery --scope track --absence-threshold-days 365 --minimum-prior-play-count 3
 ```
+
+## Abandonment analysis
+
+P4-07 provides `generateAbandonmentAnalysis` and the read-only `analyze:abandonment` command.
+It produces only as-of conclusions: `dormant` or `likely_abandoned_as_of`; it never calls an
+artist permanently abandoned. An artist must meet the configurable historical-play and former-
+cadence thresholds before it is eligible. Its active periods are contiguous canonical plays whose
+gaps do not exceed `activePeriodGapDays`; the result retains the final period's bounds and play
+count as aggregate evidence.
+
+The observation end defaults to the latest canonical event. An optional canonical UTC `asOf` may
+select an earlier observable point, never a future point beyond the available history. Absence of at
+least `dormancyDays` (default 180) is `dormant`; `likely_abandoned_as_of` requires both the
+configured `likelyAbandonedDays` threshold (default 365) and a fully observed
+`observationWindowDays` (default 365). The distinct thresholds allow a stricter likely-abandonment
+duration while preserving a separately configurable right-censoring window. The confidence
+components are normalized historical importance, former cadence, and observation completeness, with
+their arithmetic mean as the score; they are evidence, not a claim of certainty.
+
+A later canonical listen removes an artist from a later as-of conclusion. Previously generated
+results remain reproducible because they retain their as-of date, parameter envelope, versions, and
+aggregate evidence. Results use only current and unresolved canonical events, so reconciled
+multi-source events count once and no raw source data is exposed.
+
+```sh
+pnpm analyze:abandonment
+pnpm analyze:abandonment --json --dormancy-days 90 --observation-window-days 365
+pnpm analyze:abandonment --as-of 2025-01-01T00:00:00.000Z
+```

@@ -219,6 +219,26 @@ persistence window/count. JSON returns the versioned analytical envelope; human 
 Results disclose whether a current return's persistence window remains open, and contain canonical
 identity plus aggregate return evidence only—never raw source records, paths, or private fields.
 
+## Abandonment analysis
+
+Analyze historically important artists with former cadence that has not reappeared in the observable
+canonical history:
+
+```sh
+pnpm analyze:abandonment
+pnpm analyze:abandonment --json --dormancy-days 90 --observation-window-days 365
+pnpm analyze:abandonment --as-of 2025-01-01T00:00:00.000Z
+```
+
+The read-only command requires a fully migrated existing database. It accepts explicit flags for
+historical importance, former cadence, active-period gap, dormancy, likely-abandonment, and
+observation-window thresholds. `--as-of` is an optional canonical UTC timestamp no later than the
+latest canonical event, so historical conclusions can be reproduced. Results contain only
+canonical artist identity and aggregate evidence. They report `dormant` or
+`likely_abandoned_as_of`, never a permanent abandonment fact; a later rediscovery invalidates a
+later as-of conclusion while preserving earlier generated results. A likely-abandonment conclusion
+requires both its configured duration threshold and the independent observation-window threshold.
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:

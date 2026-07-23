@@ -41,41 +41,50 @@ export interface RediscoveryParameters extends JsonObject {
   readonly scope: "artist" | "track";
 }
 
-export const REDISCOVERY_PARAMETER_DEFINITION: AnalyticalParameterDefinition<RediscoveryParameters> = {
-  schemaVersion: REDISCOVERY_PARAMETER_SCHEMA_VERSION,
-  validate(input: unknown): RediscoveryParameters {
-    if (!isPlainObject(input)) {
-      throw new AnalyticalResultContractError("Rediscovery parameters must be an object");
-    }
-    const allowed = new Set(Object.keys(DEFAULT_REDISCOVERY_PARAMETERS));
-    if (Object.keys(input).some((key) => !allowed.has(key))) {
-      throw new AnalyticalResultContractError("Rediscovery parameters contain an unsupported field");
-    }
-    const parameters = { ...DEFAULT_REDISCOVERY_PARAMETERS, ...input };
-    for (const key of [
-      "absenceThresholdDays",
-      "returnWindowDays",
-      "persistenceWindowDays",
-      "minimumPriorPlayCount",
-      "minimumReturnPlayCount",
-      "minimumPersistencePlayCount",
-    ] as const) {
-      if (!isPositiveSafeInteger(parameters[key])) {
-        throw new AnalyticalResultContractError(`Rediscovery ${key} must be a positive safe integer`);
+export const REDISCOVERY_PARAMETER_DEFINITION: AnalyticalParameterDefinition<RediscoveryParameters> =
+  {
+    schemaVersion: REDISCOVERY_PARAMETER_SCHEMA_VERSION,
+    validate(input: unknown): RediscoveryParameters {
+      if (!isPlainObject(input)) {
+        throw new AnalyticalResultContractError("Rediscovery parameters must be an object");
       }
-    }
-    if (parameters.absenceThresholdDays > 3_650) {
-      throw new AnalyticalResultContractError("Rediscovery absenceThresholdDays must not exceed 3650");
-    }
-    if (parameters.returnWindowDays > 365 || parameters.persistenceWindowDays > 730) {
-      throw new AnalyticalResultContractError("Rediscovery observation windows exceed supported bounds");
-    }
-    if (parameters.scope !== "artist" && parameters.scope !== "track") {
-      throw new AnalyticalResultContractError("Rediscovery scope must be artist or track");
-    }
-    return parameters;
-  },
-};
+      const allowed = new Set(Object.keys(DEFAULT_REDISCOVERY_PARAMETERS));
+      if (Object.keys(input).some((key) => !allowed.has(key))) {
+        throw new AnalyticalResultContractError(
+          "Rediscovery parameters contain an unsupported field",
+        );
+      }
+      const parameters = { ...DEFAULT_REDISCOVERY_PARAMETERS, ...input };
+      for (const key of [
+        "absenceThresholdDays",
+        "returnWindowDays",
+        "persistenceWindowDays",
+        "minimumPriorPlayCount",
+        "minimumReturnPlayCount",
+        "minimumPersistencePlayCount",
+      ] as const) {
+        if (!isPositiveSafeInteger(parameters[key])) {
+          throw new AnalyticalResultContractError(
+            `Rediscovery ${key} must be a positive safe integer`,
+          );
+        }
+      }
+      if (parameters.absenceThresholdDays > 3_650) {
+        throw new AnalyticalResultContractError(
+          "Rediscovery absenceThresholdDays must not exceed 3650",
+        );
+      }
+      if (parameters.returnWindowDays > 365 || parameters.persistenceWindowDays > 730) {
+        throw new AnalyticalResultContractError(
+          "Rediscovery observation windows exceed supported bounds",
+        );
+      }
+      if (parameters.scope !== "artist" && parameters.scope !== "track") {
+        throw new AnalyticalResultContractError("Rediscovery scope must be artist or track");
+      }
+      return parameters;
+    },
+  };
 
 export interface RediscoveryRelatedEra extends JsonObject {
   readonly windowEndExclusive: string;
@@ -133,12 +142,7 @@ export function generateRediscoveryAnalysis(
     connection: options.connection,
     presentationTimezone: options.presentationTimezone,
   }).result.intervals;
-  const rediscoveries = findRediscoveries(
-    events,
-    eras,
-    parameters,
-    options.presentationTimezone,
-  );
+  const rediscoveries = findRediscoveries(events, eras, parameters, options.presentationTimezone);
   const eventCount = events.length;
   const unresolvedCount = events.filter((event) => event.eventStatus === "unresolved").length;
   const spotifyAvailableEventCount = events.filter((event) => event.hasSpotifySource).length;
@@ -222,7 +226,8 @@ function findRediscoveries(
         erasByArtist.get(returned.artistId) ?? [],
         returned.month,
         projectAnalyticalCalendar(
-          returned.epochMs + (parameters.returnWindowDays + parameters.persistenceWindowDays) * DAY_MS,
+          returned.epochMs +
+            (parameters.returnWindowDays + parameters.persistenceWindowDays) * DAY_MS,
           presentationTimezone,
         ).month,
       );
@@ -255,7 +260,10 @@ function findRediscoveries(
   );
 }
 
-function toEntityEvent(event: CanonicalAnalyticalBaseEvent, scope: RediscoveryParameters["scope"]): EntityEvent {
+function toEntityEvent(
+  event: CanonicalAnalyticalBaseEvent,
+  scope: RediscoveryParameters["scope"],
+): EntityEvent {
   return {
     artistId: event.artistId,
     displayName: scope === "artist" ? event.artistDisplayName : event.trackDisplayTitle,
@@ -265,8 +273,13 @@ function toEntityEvent(event: CanonicalAnalyticalBaseEvent, scope: RediscoveryPa
   };
 }
 
-function countEvents(events: readonly EntityEvent[], startInclusive: number, endExclusive: number): number {
-  return events.filter((event) => event.epochMs >= startInclusive && event.epochMs < endExclusive).length;
+function countEvents(
+  events: readonly EntityEvent[],
+  startInclusive: number,
+  endExclusive: number,
+): number {
+  return events.filter((event) => event.epochMs >= startInclusive && event.epochMs < endExclusive)
+    .length;
 }
 
 function relatedEraFor(
@@ -283,7 +296,6 @@ function relatedEraFor(
     ? null
     : { windowEndExclusive: era.windowEndExclusive, windowStart: era.windowStart };
 }
-
 
 function dateRangeForEvents(events: readonly CanonicalAnalyticalBaseEvent[]) {
   const first = events[0];

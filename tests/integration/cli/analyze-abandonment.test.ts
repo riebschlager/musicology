@@ -12,7 +12,7 @@ import {
 function runCli(workspace: TemporaryTestWorkspace, args: readonly string[]) {
   return spawnSync(
     process.execPath,
-    [path.join(repositoryRoot, "src/cli/analyze-rediscovery.ts"), ...args],
+    [path.join(repositoryRoot, "src/cli/analyze-abandonment.ts"), ...args],
     {
       cwd: repositoryRoot,
       encoding: "utf8",
@@ -25,26 +25,33 @@ function runCli(workspace: TemporaryTestWorkspace, args: readonly string[]) {
   );
 }
 
-describe("analyze:rediscovery CLI", () => {
-  it("emits the versioned result envelope and a concise human result", () => {
+describe("analyze:abandonment CLI", () => {
+  it("emits the versioned result envelope and concise human result", () => {
     withTemporaryTestWorkspace((workspace) => {
-      const json = runCli(workspace, ["--json", "--absence-threshold-days", "90"]);
+      const json = runCli(workspace, ["--json", "--dormancy-days", "90"]);
       assert.equal(json.status, 0, json.stderr);
-      const result = JSON.parse(json.stdout) as {
-        readonly command: string;
-        readonly data: { readonly analysis: string };
-      };
-      assert.equal(result.command, "analyze:rediscovery");
-      assert.equal(result.data.analysis, "rediscovery");
+      assert.equal(
+        (
+          JSON.parse(json.stdout) as {
+            readonly command: string;
+            readonly data: { readonly analysis: string };
+          }
+        ).command,
+        "analyze:abandonment",
+      );
+      assert.equal(
+        (JSON.parse(json.stdout) as { readonly data: { readonly analysis: string } }).data.analysis,
+        "abandonment",
+      );
       const human = runCli(workspace, []);
       assert.equal(human.status, 0, human.stderr);
-      assert.match(human.stdout, /Rediscoveries/u);
+      assert.match(human.stdout, /Abandonment analysis/u);
     });
   });
 
   it("rejects invalid arguments with a safe usage result", () => {
     withTemporaryTestWorkspace((workspace) => {
-      const result = runCli(workspace, ["--json", "--scope", "album"]);
+      const result = runCli(workspace, ["--json", "--as-of", "not-a-date"]);
       assert.equal(result.status, 2);
       assert.equal(
         (JSON.parse(result.stderr) as { readonly errors: readonly { readonly code: string }[] })
