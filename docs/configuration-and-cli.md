@@ -33,6 +33,23 @@ values to the result renderer as redaction values before producing console outpu
 The P3-01 API client boundary is documented in
 [`lastfm-api-client.md`](lastfm-api-client.md).
 
+## Optional genre enrichment
+
+After migrations and canonical events are current, enrich only artists with one exact strong
+MusicBrainz artist ID:
+
+```sh
+pnpm enrich:genres --limit 25
+pnpm enrich:genres --dry-run --limit 25 --json
+pnpm enrich:genres --refresh --json
+```
+
+The command has no credential configuration. It is bounded/resumable through immutable SQLite
+snapshots, preserves refresh lineage, and reports only aggregate action and artist/event coverage
+states (`enriched`, `missing`, `ambiguous`, `stale`, and `failed`). It does not print provider tags,
+artist names or IDs, raw responses, or source evidence. The provider and cache boundary is documented
+in [`genre-enrichment-client.md`](genre-enrichment-client.md).
+
 ## Command results and exit codes
 
 Commands return the shared result contract in `src/cli/result.ts`: command name, success/error

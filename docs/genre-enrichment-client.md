@@ -29,3 +29,12 @@ the preceding snapshot ID; a failure never supersedes usable evidence.
 The client uses no credential or environment variable. It returns only safe error codes defined by
 the genre evidence contract. An artist without an exact MusicBrainz ID is skipped as
 `ambiguous_identity` rather than queried by name.
+
+P5-04 adds `pnpm enrich:genres`, which uses the cache and processes current or unresolved canonical
+artists in descending event-count then ID order. `--limit` bounds considered artists, `--dry-run`
+does not persist snapshots, and `--refresh` applies the documented age policy. Its summary contains
+aggregate actions and a versioned coverage partition only; it never prints artist names, IDs, tags,
+provider response bodies, or source evidence. The partition is mutually exclusive: fresh successful
+evidence is `enriched`, a negative/no result is `missing`, no unique exact strong MusicBrainz ID is
+`ambiguous`, aged usable evidence is `stale`, and an otherwise unusable latest failure is `failed`.
+Artist and canonical-event counts reconcile exactly across these states.
