@@ -23,6 +23,7 @@
     "db:migrate": "node --env-file-if-exists=.env src/cli/db.ts migrate",
     "db:status": "node --env-file-if-exists=.env src/cli/db.ts status",
     "enrich:genres": "node --env-file-if-exists=.env src/cli/enrich-genres.ts",
+    "genre:taxonomy": "node --env-file-if-exists=.env src/cli/genre-taxonomy.ts",
     "export:analytics": "node --env-file-if-exists=.env src/cli/export-analytics.ts",
     "export:reconciliation-calibration": "node --env-file-if-exists=.env src/cli/export-reconciliation-calibration.ts",
     "format": "biome format --write .",

@@ -170,6 +170,9 @@ describe("initial schema contract", () => {
         "genre_enrichment_snapshot",
         "genre_mapping",
         "genre_tag",
+        "genre_taxonomy_category",
+        "genre_taxonomy_mapping",
+        "genre_taxonomy_version",
         "identity_decision",
         "identity_resolution_conflict",
         "ingest_run",
@@ -387,6 +390,24 @@ describe("initial schema contract", () => {
         "confidence",
         "is_recognized_genre",
       ]);
+      assert.deepEqual(columns(connection, "genre_taxonomy_version"), [
+        "taxonomy_version",
+        "artifact_version",
+        "content_fingerprint_sha256",
+        "imported_at_epoch_ms",
+      ]);
+      assert.deepEqual(columns(connection, "genre_taxonomy_category"), [
+        "taxonomy_version",
+        "category_id",
+        "label",
+        "parent_category_id",
+      ]);
+      assert.deepEqual(columns(connection, "genre_taxonomy_mapping"), [
+        "taxonomy_version",
+        "source_tag",
+        "mapping_action",
+        "target_category_id",
+      ]);
     });
   });
 
@@ -413,6 +434,7 @@ describe("initial schema contract", () => {
         "artist_genre_evidence_artist_idx",
         "genre_enrichment_snapshot_artist_provider_idx",
         "genre_enrichment_raw_tag_snapshot_idx",
+        "genre_taxonomy_mapping_target_idx",
         "manual_reconciliation_decision_candidate_idx",
         "manual_identity_resolution_override_source_idx",
       ]) {
@@ -450,6 +472,16 @@ describe("initial schema contract", () => {
       ]);
       assert.deepEqual(foreignKeys(connection, "genre_enrichment_raw_tag"), [
         "snapshot_id->genre_enrichment_snapshot",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_taxonomy_category"), [
+        "parent_category_id->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_version",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_taxonomy_mapping"), [
+        "target_category_id->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_version",
       ]);
       assert.deepEqual(foreignKeys(connection, "manual_identity_decision"), [
         "decision_key->manual_decision_artifact",
@@ -637,6 +669,7 @@ describe("initial schema contract", () => {
           "add_manual_identity_override_snapshots",
           "add_lastfm_api_sync_metadata",
           "add_genre_enrichment_evidence_contract",
+          "add_genre_taxonomy_mapping_workflow",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

@@ -33,6 +33,10 @@ placeholder and any later analytical assignment. Each snapshot also requires the
 exact strong MusicBrainz identifier. The focused
 [`genre enrichment evidence contract`](genre-enrichment-evidence-contract.md) defines the allowed
 provider, safe cache/error states, provider schema version, and privacy boundary.
+`migrations/0013_add_genre_taxonomy_mapping_workflow.sql` adds versioned curated taxonomy
+categories and mappings. A taxonomy import can only add a version, never modify immutable provider
+snapshots or raw tags. Categories support a validated parent/child hierarchy; mappings preserve the
+explicit keep, combine, rename, or ignore decision for each known raw tag.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately
