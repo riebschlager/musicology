@@ -16,6 +16,11 @@ not redirect private inputs or generated output accidentally.
 | `LASTFM_USERNAME` | unset | Optional Last.fm account for `sync:lastfm` synchronization |
 | `LASTFM_API_KEY` | unset | Optional Last.fm API secret for `sync:lastfm` synchronization |
 
+Every CLI `pnpm` script passes Node's `--env-file-if-exists=.env` flag, so variables in a
+repository-root `.env` file (see `.env.example`) are loaded automatically. Variables already set in
+the shell environment take precedence over `.env` values, and a missing `.env` is not an error.
+Invoking a CLI entry point with `node` directly requires passing the flag yourself.
+
 Relative path overrides are resolved from the repository root. Absolute overrides remain absolute.
 Changing `MUSICOLOGY_DATA_DIR` also moves the three default child paths; an explicit child override
 takes precedence. The loader validates timezones, paths, and configured Last.fm values before a
