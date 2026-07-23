@@ -271,20 +271,25 @@ pnpm export:analytics --json
 pnpm export:analytics --check
 ```
 
-The command reads a current migrated database and writes `analytics-v1` under
+The command reads a current migrated database and writes `analytics-v2` under
 `MUSICOLOGY_OUTPUTS_DIR`. Its manifest is written last and lists deterministic content hashes for
-five artifacts: volume, artist eras, rediscovery, abandonment, and aggregate coverage. Each artifact
-carries its schema version, the applied migration checksums, and a canonical-state fingerprint. The
-fingerprint includes analytical inputs and aggregate coverage, so `--check` rejects a bundle after a
+six artifacts: volume, artist eras, genre eras, rediscovery, abandonment, and aggregate coverage. Each artifact
+carries its schema version, the applied migration checksums, a canonical-state fingerprint, and a
+raw-mode genre-evidence fingerprint. The fingerprints include analytical inputs, aggregate coverage,
+and the genre evidence consumed by the exported genre eras, so `--check` rejects a bundle after a
 database, migration, or relevant rule/data change. Re-running with unchanged data produces equivalent
 artifact content. `--check` also compares each artifact with the current deterministic analytical
 contract. Outputs contain analytical envelopes, aggregate coverage, canonical identities, and
 aggregate evidence only; they never include raw source tables, input paths, raw records, excluded
 source fields, secrets, or account usernames. Generated outputs remain ignored by Git.
 
+`genre-eras.json` is the bundle's raw-tag genre result: it names its provider, artist-level
+weighting, freshness split, and usable event coverage. Curated genre results require an explicit
+taxonomy version and are generated outside this fixed bundle.
+
 ## Analytics validation and performance check
 
-Run all four analytical families against the same read-only database snapshot and reconcile each
+Run the four Phase 4 analytical families against the same read-only database snapshot and reconcile each
 analysis's canonical event count to the aggregate coverage report:
 
 ```sh

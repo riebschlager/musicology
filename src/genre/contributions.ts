@@ -168,7 +168,7 @@ export function generateGenreContributions(
     throw new RangeError("Genre contributions require valid freshness parameters");
   }
 
-  return options.connection.transaction((connection) => {
+  const calculate = (connection: SqliteConnection): GenreContributionResult => {
     const taxonomyVersion = validateOptions({ ...options, connection });
     const latestSnapshots = new Map<number, ArtistSnapshotRow>(
       connection
@@ -255,7 +255,10 @@ export function generateGenreContributions(
       version: GENRE_CONTRIBUTION_VERSION,
       weightingLevel: GENRE_CONTRIBUTION_WEIGHTING_LEVEL,
     };
-  }, "deferred");
+  };
+  return options.connection.isInTransaction
+    ? calculate(options.connection)
+    : options.connection.transaction(calculate, "deferred");
 }
 
 function validateOptions(options: GenerateGenreContributionOptions): string | null {

@@ -20,9 +20,71 @@ import {
   verifyAnalyticalExports,
   writeAnalyticalExports,
 } from "../../../src/exports/analytics.ts";
+import type { SqliteConnection } from "../../../src/db/connection.ts";
 import { withTemporaryTestWorkspace } from "../../helpers/temporary-workspace.ts";
 
 const migrationsDirectory = fileURLToPath(new URL("../../../migrations/", import.meta.url));
+
+function addGenreEvidence(connection: SqliteConnection): void {
+  connection
+    .prepare(
+      "INSERT INTO ingest_run (id, command_type, started_at_epoch_ms, status, schema_version) VALUES (1, 'identity_resolution', 1, 'running', '11')",
+    )
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO music_entity (id, entity_type, created_at_epoch_ms) VALUES (1, 'artist', 1), (2, 'track', 1)",
+    )
+    .run();
+  connection
+    .prepare("INSERT INTO artist (id, preferred_name) VALUES (1, 'Synthetic Artist')")
+    .run();
+  connection
+    .prepare("INSERT INTO track (id, artist_id, preferred_title) VALUES (2, 1, 'Synthetic Track')")
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO listening_event (id, track_id, started_at_epoch_ms, ended_at_epoch_ms, time_basis, event_status, reconciliation_rule_version) VALUES (1, 2, 1, 1, 'observed_start', 'current', 'synthetic-v1')",
+    )
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO source_record (id, source_kind, ingest_run_id, accepted_at_epoch_ms) VALUES (1, 'lastfm', 1, 1)",
+    )
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO lastfm_scrobble_source (source_record_id, source_origin, scrobbled_at_epoch_ms, artist_name, track_name, source_fingerprint_sha256) VALUES (1, 'export', 1, 'Synthetic Artist', 'Synthetic Track', '0000000000000000000000000000000000000000000000000000000000000001')",
+    )
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO lastfm_scrobble_occurrence (source_record_id, lastfm_scrobble_source_record_id, source_origin) VALUES (1, 1, 'export')",
+    )
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO listening_event_source (listening_event_id, source_record_id, evidence_role) VALUES (1, 1, 'primary')",
+    )
+    .run();
+  connection
+    .prepare(
+      "INSERT INTO music_identifier (entity_id, namespace, identifier_value, is_strong) VALUES (1, 'musicbrainz_artist_id', 'c0ffee00-cafe-4000-8000-000000000001', 1)",
+    )
+    .run();
+  const snapshotId = Number(
+    connection
+      .prepare(
+        "INSERT INTO genre_enrichment_snapshot (artist_id, provider, provider_entity_id, provider_response_schema_version, contract_version, provider_license, provider_attribution, fetched_at_epoch_ms, cache_state, outcome) VALUES (1, 'musicbrainz', 'c0ffee00-cafe-4000-8000-000000000001', 'musicbrainz-artist-v1', 'genre-evidence-v1', 'CC0 / CC BY-NC-SA', 'MusicBrainz', 0, 'success', 'success')",
+      )
+      .run().lastInsertRowid,
+  );
+  connection
+    .prepare(
+      "INSERT INTO genre_enrichment_raw_tag (snapshot_id, raw_tag_name, normalized_raw_tag, raw_weight, confidence, is_recognized_genre) VALUES (?, 'ambient', 'ambient', 1, NULL, 1)",
+    )
+    .run([snapshotId]);
+}
 
 describe("versioned analytical exports", () => {
   it("writes deterministic artifacts with manifest hashes and no raw source-table data", () => {
@@ -51,6 +113,7 @@ describe("versioned analytical exports", () => {
         "abandonment",
         "artist-eras",
         "coverage",
+        "genre-eras",
         "rediscovery",
         "volume",
       ]);
@@ -94,6 +157,48 @@ describe("versioned analytical exports", () => {
         )
         .run();
 
+      assert.throws(
+        () => verifyAnalyticalExports(workspace.configuration.paths.outputsDirectory, options),
+        (error: unknown) => error instanceof AnalyticalExportError && error.code === "stale_export",
+      );
+    });
+  });
+
+  it("detects a stale bundle after genre evidence changes", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      const options = {
+        connection: workspace.connection,
+        migrationsDirectory,
+        presentationTimezone: "America/Chicago",
+      };
+      addGenreEvidence(workspace.connection);
+      const generated = generateAnalyticalExports(options);
+      writeAnalyticalExports(workspace.configuration.paths.outputsDirectory, generated);
+      const priorSnapshotId = Number(
+        workspace.connection
+          .prepare<{ readonly id: number }>(
+            "SELECT id FROM genre_enrichment_snapshot WHERE artist_id = 1",
+          )
+          .get()?.id,
+      );
+      const refreshedSnapshotId = Number(
+        workspace.connection
+          .prepare(
+            "INSERT INTO genre_enrichment_snapshot (artist_id, provider, provider_entity_id, provider_response_schema_version, contract_version, provider_license, provider_attribution, fetched_at_epoch_ms, cache_state, outcome, supersedes_snapshot_id) VALUES (1, 'musicbrainz', 'c0ffee00-cafe-4000-8000-000000000001', 'musicbrainz-artist-v1', 'genre-evidence-v1', 'CC0 / CC BY-NC-SA', 'MusicBrainz', 1, 'success', 'success', ?)",
+          )
+          .run([priorSnapshotId]).lastInsertRowid,
+      );
+      workspace.connection
+        .prepare(
+          "INSERT INTO genre_enrichment_raw_tag (snapshot_id, raw_tag_name, normalized_raw_tag, raw_weight, confidence, is_recognized_genre) VALUES (?, 'jazz', 'jazz', 1, NULL, 1)",
+        )
+        .run([refreshedSnapshotId]);
+      const changed = generateAnalyticalExports(options);
+
+      assert.notEqual(
+        changed.manifest.databaseState.genreEvidenceSnapshotSha256,
+        generated.manifest.databaseState.genreEvidenceSnapshotSha256,
+      );
       assert.throws(
         () => verifyAnalyticalExports(workspace.configuration.paths.outputsDirectory, options),
         (error: unknown) => error instanceof AnalyticalExportError && error.code === "stale_export",
@@ -160,7 +265,7 @@ describe("versioned analytical exports", () => {
           artifact: name,
           databaseState: generated.manifest.databaseState,
           data: {},
-          schemaVersion: "analytical-export-artifact-v1",
+          schemaVersion: "analytical-export-artifact-v2",
         };
         const malformedText = `${JSON.stringify(malformedArtifact)}\n`;
         writeFileSync(artifactPath, malformedText, "utf8");

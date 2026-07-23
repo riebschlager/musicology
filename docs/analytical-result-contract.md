@@ -165,6 +165,23 @@ pnpm analyze:artist-eras --json --window-size-months 1 --rolling-window-count 2
 pnpm analyze:artist-eras --minimum-window-play-count 5 --minimum-listening-share 0.03
 ```
 
+## Genre-era analysis
+
+P5-07 provides `generateGenreEraAnalysis`, which consumes the P5-06 contribution snapshot rather
+than source records. It reads both contributions and canonical calendar events in one SQLite read
+transaction. It applies the artist-era interval approach to fractional contribution counts:
+each qualifying window retains its contribution, rolling contribution, share, rank, baseline, and
+strength. Intervals expose total qualifying-window contribution, mean share, and a deterministic
+peak. The explicit parameters use fractional `minimumWindowContribution` and
+`minimumRollingContribution` thresholds.
+
+The envelope always includes raw/curated mode, nullable taxonomy version, MusicBrainz provider,
+artist-level weighting, provider freshness split, and usable/missing/total artist and event
+coverage. Events without usable evidence remain missing rather than becoming an `unknown` genre;
+a low usable-event rate visibly qualifies the result. The versioned export bundle contains the
+deterministic raw-mode `genre-eras.json` artifact; consumers requiring a curated taxonomy call the
+analysis with its explicit immutable taxonomy version.
+
 ## Rediscovery analysis
 
 P4-06 provides `generateRediscoveryAnalysis` and the read-only `analyze:rediscovery` command.
