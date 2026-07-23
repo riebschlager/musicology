@@ -11,6 +11,7 @@
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
+    "analyze:volume": "node src/cli/analyze-volume.ts",
     "db:migrate": "node src/cli/db.ts migrate",
     "db:status": "node src/cli/db.ts status",
     "export:reconciliation-calibration": "node src/cli/export-reconciliation-calibration.ts",

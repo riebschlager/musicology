@@ -4,7 +4,7 @@ import type { JsonObject, JsonValue } from "../cli/result.ts";
  * Schema for every P4 analytical result. A schema-version change is a public contract change,
  * not an implicit consequence of changing an individual analysis.
  */
-export const ANALYTICAL_RESULT_SCHEMA_VERSION = "analytical-result-v1";
+export const ANALYTICAL_RESULT_SCHEMA_VERSION = "analytical-result-v2";
 
 /**
  * These source and credential fields are excluded project-wide. Analytical payloads are a public
@@ -67,8 +67,10 @@ export interface AnalyticalResultVersions {
 
 export interface AnalyticalResult<TData extends JsonValue = JsonValue> {
   readonly analysis: string;
-  readonly asOf: string;
-  readonly dateRange: AnalyticalDateRange;
+  /** Null when the selected population has no observable date range. */
+  readonly asOf: string | null;
+  /** Null when the selected population has no observable date range. */
+  readonly dateRange: AnalyticalDateRange | null;
   readonly definition: string;
   readonly eventCount: number;
   readonly includedSources: readonly AnalyticalSource[];
@@ -129,9 +131,13 @@ export function createAnalyticalResult<TData extends JsonValue>(
   validateRequiredText(input.analysis, "Analysis name");
   validateRequiredText(input.definition, "Definition");
   validateTimezone(input.presentationTimezone);
-  validateTimestamp(input.asOf, "As-of date");
-  validateDateRange(input.dateRange, input.asOf);
+  validateDateContext(input.dateRange, input.asOf);
   validateCount(input.eventCount, "Event count");
+  if (input.dateRange === null && input.eventCount !== 0) {
+    throw new AnalyticalResultContractError(
+      "An absent date range is only valid when the result event count is zero",
+    );
+  }
   validateRate(input.unresolvedRate, "Unresolved rate");
   assertJsonObject(input.parameters, "Parameters");
   assertJsonValue(input.result, "Result");
@@ -143,10 +149,13 @@ export function createAnalyticalResult<TData extends JsonValue>(
   return {
     analysis: input.analysis,
     asOf: input.asOf,
-    dateRange: {
-      endExclusive: input.dateRange.endExclusive,
-      startInclusive: input.dateRange.startInclusive,
-    },
+    dateRange:
+      input.dateRange === null
+        ? null
+        : {
+            endExclusive: input.dateRange.endExclusive,
+            startInclusive: input.dateRange.startInclusive,
+          },
     definition: input.definition,
     eventCount: input.eventCount,
     includedSources,
@@ -257,7 +266,13 @@ function normalizeVersionsList(values: unknown, label: string): readonly string[
   return [...new Set(normalized)].sort();
 }
 
-function validateDateRange(range: unknown, asOf: unknown): void {
+function validateDateContext(range: unknown, asOf: unknown): void {
+  if (range === null && asOf === null) return;
+  if (range === null || asOf === null) {
+    throw new AnalyticalResultContractError(
+      "Date range and as-of date must both be null or both be present",
+    );
+  }
   assertPlainObject(range, "Date range");
   const startInclusive = range.startInclusive;
   const endExclusive = range.endExclusive;

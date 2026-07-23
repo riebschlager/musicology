@@ -167,6 +167,23 @@ The comparison is opt-in, reports aggregate deviations without failing the comma
 of CI. Input paths and source display values are omitted; input hashes are included because they are
 the explicit evidence identity required by the report contract.
 
+## Listening-volume analysis
+
+Analyze canonical listening volume from an existing, fully migrated database:
+
+```sh
+pnpm analyze:volume
+pnpm analyze:volume --json --grain month --metric listened_ms
+pnpm analyze:volume --grain day --metric play_count_at_least_ms --minimum-duration-ms 30000 --from 2024-01-01T00:00:00.000Z --to 2024-02-01T00:00:00.000Z
+```
+
+The default `play_count` includes every canonical track event. `listened_ms` is explicitly
+Spotify-backed only; it does not estimate duration for Last.fm-only events. The optional
+`play_count_at_least_ms` is separately named and requires Spotify duration evidence. `--from` and
+`--to` must be paired canonical UTC timestamps. `--rolling-window-periods` controls the rolling
+derivation, and `--exclude-unresolved` omits unresolved canonical events. Human output is concise;
+`--json` returns the versioned analytical envelope with coverage and parameter disclosures.
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:

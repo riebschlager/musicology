@@ -116,6 +116,35 @@ describe("analytical result envelope", () => {
     }
   });
 
+  it("allows an explicit absent date context only for empty selections", () => {
+    const empty = createAnalyticalResult({
+      ...representativeInput(),
+      asOf: null,
+      dateRange: null,
+      eventCount: 0,
+      metadataCoverage: {
+        spotifyDuration: { availableEventCount: 0, rate: 0, totalEventCount: 0 },
+      },
+      result: { rows: [] },
+      unresolvedRate: 0,
+    });
+    assert.equal(empty.asOf, null);
+    assert.equal(empty.dateRange, null);
+    assert.throws(
+      () => createAnalyticalResult({ ...representativeInput(), asOf: null }),
+      /both be null or both be present/,
+    );
+    assert.throws(
+      () =>
+        createAnalyticalResult({
+          ...representativeInput(),
+          asOf: null,
+          dateRange: null,
+        }),
+      /only valid when the result event count is zero/,
+    );
+  });
+
   it("records a versioned TypeScript parameter validator and rejects invalid parameters", () => {
     const definition = {
       schemaVersion: "volume-parameters-v1",

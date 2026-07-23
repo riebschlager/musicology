@@ -143,6 +143,17 @@ export function queryCanonicalAnalyticalBase(
     }));
 }
 
+/** Projects one UTC instant into the caller-selected presentation calendar. */
+export function projectAnalyticalCalendar(
+  epochMs: number,
+  presentationTimezone: string,
+): CalendarProjection {
+  if (!Number.isSafeInteger(epochMs)) {
+    throw new RangeError("Calendar instant must be a safe integer epoch millisecond value");
+  }
+  return projectCalendar(epochMs, createCalendarFormatter(presentationTimezone));
+}
+
 function createCalendarFormatter(presentationTimezone: string): Intl.DateTimeFormat {
   if (presentationTimezone.trim() === "") {
     throw new RangeError("Presentation timezone must name a valid IANA timezone");
