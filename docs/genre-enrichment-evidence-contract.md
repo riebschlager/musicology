@@ -43,7 +43,9 @@ its historical enrichment evidence rather than removing it.
 matching normalization, the provider-relative raw vote weight, nullable provider confidence, and
 whether MusicBrainz identifies the tag as a recognized genre. A raw weight is neither a probability
 nor a listening-event contribution. `NULL` confidence means the provider did not supply one; it is
-not zero confidence. Duplicate normalized tags are rejected per snapshot.
+not zero confidence. The adapter collapses an overlap between the provider's `tags` and `genres`
+collections to the recognized-genre row before this boundary. Duplicate normalized values remaining
+within either collection are rejected per snapshot.
 
 The snapshot/tag tables contain no taxonomy ID, curated category, mapping version, or event ID.
 The earlier placeholder `genre_tag`, `artist_genre_evidence`, and `genre_mapping` tables remain
