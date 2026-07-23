@@ -143,3 +143,24 @@ then earliest start). Its `playCount` is the sum of current-window plays, its `s
 window share, and its evidence contains the component values and baseline availability for every
 qualifying window. This preserves the explanation for a result without emitting source evidence or
 artist/track payloads beyond the canonical analytical identity required by P4-05.
+
+## Artist-era analysis
+
+P4-05 provides `generateArtistEraAnalysis` and the read-only `analyze:artist-eras` command. It
+uses the canonical analytical base, so each current or unresolved canonical event is counted once
+regardless of whether it has Spotify, Last.fm, or both sources. The result includes all accepted
+artist-era parameters, canonical event count, unresolved rate, explicit timezone, source-backing
+coverage, input rule versions, and an `intervals` payload.
+
+Each interval identifies the canonical artist, its inclusive `windowStart` and exclusive
+`windowEndExclusive` calendar-month labels, total current-window `playCount`, mean `share`, peak
+`strength`, and peak window. Its `evidence` array retains every qualifying window's full P4-04
+components. Windows are sorted by their aligned start; intervals are deterministically ordered by
+start then artist identity. Artists with no qualifying window are omitted rather than described as
+having a negative or absent era.
+
+```sh
+pnpm analyze:artist-eras
+pnpm analyze:artist-eras --json --window-size-months 1 --rolling-window-count 2
+pnpm analyze:artist-eras --minimum-window-play-count 5 --minimum-listening-share 0.03
+```

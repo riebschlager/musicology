@@ -184,6 +184,24 @@ Spotify-backed only; it does not estimate duration for Last.fm-only events. The 
 derivation, and `--exclude-unresolved` omits unresolved canonical events. Human output is concise;
 `--json` returns the versioned analytical envelope with coverage and parameter disclosures.
 
+## Artist-era analysis
+
+Analyze calendar-aligned, explainable artist eras from the current and unresolved canonical event
+history:
+
+```sh
+pnpm analyze:artist-eras
+pnpm analyze:artist-eras --json --window-size-months 1 --rolling-window-count 2
+pnpm analyze:artist-eras --minimum-window-play-count 5 --minimum-rolling-play-count 20 --minimum-listening-share 0.03
+```
+
+The command is read-only and requires a fully migrated existing database. It accepts every
+documented P4-04 era parameter as an explicit flag: window size, rolling window count, minimum
+current and rolling plays, share, rank, consecutive active windows, and earlier-baseline change.
+Human output is concise; `--json` emits the versioned analytical envelope. Results include only
+canonical artist identity and aggregated component evidence—never raw source records, paths, or
+private source fields.
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:

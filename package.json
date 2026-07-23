@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "analyze:volume": "node src/cli/analyze-volume.ts",
+    "analyze:artist-eras": "node src/cli/analyze-artist-eras.ts",
     "db:migrate": "node src/cli/db.ts migrate",
     "db:status": "node src/cli/db.ts status",
     "export:reconciliation-calibration": "node src/cli/export-reconciliation-calibration.ts",
