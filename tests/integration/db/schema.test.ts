@@ -166,6 +166,8 @@ describe("initial schema contract", () => {
         "artist_alias",
         "artist_genre_evidence",
         "cross_source_candidate_generation",
+        "genre_enrichment_raw_tag",
+        "genre_enrichment_snapshot",
         "genre_mapping",
         "genre_tag",
         "identity_decision",
@@ -361,6 +363,30 @@ describe("initial schema contract", () => {
         "artist_id",
         "release_id",
       ]);
+      assert.deepEqual(columns(connection, "genre_enrichment_snapshot"), [
+        "id",
+        "artist_id",
+        "provider",
+        "provider_entity_id",
+        "provider_response_schema_version",
+        "contract_version",
+        "provider_license",
+        "provider_attribution",
+        "fetched_at_epoch_ms",
+        "cache_state",
+        "outcome",
+        "error_code",
+        "supersedes_snapshot_id",
+      ]);
+      assert.deepEqual(columns(connection, "genre_enrichment_raw_tag"), [
+        "id",
+        "snapshot_id",
+        "raw_tag_name",
+        "normalized_raw_tag",
+        "raw_weight",
+        "confidence",
+        "is_recognized_genre",
+      ]);
     });
   });
 
@@ -385,6 +411,8 @@ describe("initial schema contract", () => {
         "listening_event_track_time_idx",
         "reconciliation_candidate_state_idx",
         "artist_genre_evidence_artist_idx",
+        "genre_enrichment_snapshot_artist_provider_idx",
+        "genre_enrichment_raw_tag_snapshot_idx",
         "manual_reconciliation_decision_candidate_idx",
         "manual_identity_resolution_override_source_idx",
       ]) {
@@ -415,6 +443,13 @@ describe("initial schema contract", () => {
       assert.deepEqual(foreignKeys(connection, "artist_genre_evidence"), [
         "artist_id->artist",
         "genre_tag_id->genre_tag",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_enrichment_snapshot"), [
+        "artist_id->artist",
+        "supersedes_snapshot_id->genre_enrichment_snapshot",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_enrichment_raw_tag"), [
+        "snapshot_id->genre_enrichment_snapshot",
       ]);
       assert.deepEqual(foreignKeys(connection, "manual_identity_decision"), [
         "decision_key->manual_decision_artifact",
@@ -601,6 +636,7 @@ describe("initial schema contract", () => {
           "add_manual_decision_artifacts",
           "add_manual_identity_override_snapshots",
           "add_lastfm_api_sync_metadata",
+          "add_genre_enrichment_evidence_contract",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);
