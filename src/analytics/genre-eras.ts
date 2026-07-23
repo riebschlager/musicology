@@ -166,12 +166,14 @@ export function generateGenreEraAnalysis(
       parameters,
     );
     const eventCount = events.length;
+    const firstEvent = events.at(0);
+    const lastEvent = events.at(-1);
     const dateRange =
-      events.length === 0
+      firstEvent === undefined || lastEvent === undefined
         ? null
         : {
-            startInclusive: new Date(events[0]!.calendarInstantEpochMs).toISOString(),
-            endExclusive: new Date(events.at(-1)!.calendarInstantEpochMs + 1).toISOString(),
+            startInclusive: new Date(firstEvent.calendarInstantEpochMs).toISOString(),
+            endExclusive: new Date(lastEvent.calendarInstantEpochMs + 1).toISOString(),
           };
     const usable = contributions.coverage.usable.eventCount;
     return createAnalyticalResult<GenreEraResult>({
@@ -224,9 +226,11 @@ function calculateWindows(
   calendarMonths: readonly string[],
   p: GenreEraParameters,
 ): readonly GenreWindow[] {
-  if (calendarMonths.length === 0) return [];
-  const first = parseMonth(calendarMonths[0]!);
-  const last = parseMonth(calendarMonths.at(-1)!);
+  const firstMonth = calendarMonths.at(0);
+  const lastMonth = calendarMonths.at(-1);
+  if (firstMonth === undefined || lastMonth === undefined) return [];
+  const first = parseMonth(firstMonth);
+  const last = parseMonth(lastMonth);
   const keys = range(first, last, p.windowSizeMonths);
   const values = new Map<string, Map<number, number>>();
   const labels = new Map<string, string>();
@@ -256,7 +260,11 @@ function calculateWindows(
     const ranks = denseRanks([...rolling].map(([id, counts]) => ({ id, value: counts[i] ?? 0 })));
     const total = sum([...rolling.values()].map((counts) => counts[i] ?? 0));
     for (const [genreId, count] of current) {
-      const rollingCounts = rolling.get(genreId)!;
+      const rollingCounts = rolling.get(genreId);
+      const key = keys[i];
+      const genreLabel = labels.get(genreId);
+      if (rollingCounts === undefined || key === undefined || genreLabel === undefined)
+        throw new Error("Genre-era window calculation lost derived genre data");
       const windowContribution = count[i] ?? 0;
       const rollingContribution = rollingCounts[i] ?? 0;
       const baselineEnd = i - p.rollingWindowCount;
@@ -293,9 +301,9 @@ function calculateWindows(
           : [ratio(change - p.minimumEarlierBaselineChange, p.minimumRollingContribution)]),
       ];
       output.push({
-        ...keys[i]!,
+        ...key,
         genreId,
-        genreLabel: labels.get(genreId)!,
+        genreLabel,
         components: {
           consecutiveActiveWindows: consecutive,
           earlierBaselineChange: change,
@@ -339,8 +347,10 @@ function assembleIntervals(
   );
 }
 function interval(windows: readonly GenreWindow[], size: number): GenreEraInterval {
-  const first = windows[0]!;
-  const last = windows.at(-1)!;
+  const first = windows.at(0);
+  const last = windows.at(-1);
+  if (first === undefined || last === undefined)
+    throw new Error("Genre-era interval requires at least one qualifying window");
   const peak = windows.reduce((best, item) =>
     item.components.strength > best.components.strength ||
     (item.components.strength === best.components.strength &&
