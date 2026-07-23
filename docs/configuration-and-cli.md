@@ -260,6 +260,23 @@ contract. Outputs contain analytical envelopes, aggregate coverage, canonical id
 aggregate evidence only; they never include raw source tables, input paths, raw records, excluded
 source fields, secrets, or account usernames. Generated outputs remain ignored by Git.
 
+## Analytics validation and performance check
+
+Run all four analytical families against the same read-only database snapshot and reconcile each
+analysis's canonical event count to the aggregate coverage report:
+
+```sh
+pnpm benchmark:analytics
+pnpm benchmark:analytics --json
+```
+
+The command reports only aggregate canonical-event counts and elapsed milliseconds for volume,
+artist eras, rediscovery, and abandonment. It does not impose a CI time budget because local
+hardware and SQLite cache state vary; use it to compare representative local archive runs after a
+material query or analytical-contract change. A count mismatch fails with a safe data error. The
+P4-09 archive findings and interpretation cautions are recorded in
+[`phase-4-analytics-validation.md`](phase-4-analytics-validation.md).
+
 ## Reconciliation calibration sample
 
 After P2-06 candidate features have been generated, export a local labeling sample:

@@ -15,6 +15,7 @@
     "analyze:artist-eras": "node src/cli/analyze-artist-eras.ts",
     "analyze:abandonment": "node src/cli/analyze-abandonment.ts",
     "analyze:rediscovery": "node src/cli/analyze-rediscovery.ts",
+    "benchmark:analytics": "node src/cli/benchmark-analytics.ts",
     "db:migrate": "node src/cli/db.ts migrate",
     "db:status": "node src/cli/db.ts status",
     "export:analytics": "node src/cli/export-analytics.ts",
