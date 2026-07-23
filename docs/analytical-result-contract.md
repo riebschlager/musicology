@@ -36,3 +36,17 @@ account data, sensitive source fields, or private payloads. The common envelope 
 source and credential field names recursively in parameters and result payloads, including common
 snake-case, kebab-case, and camel-case spellings. Each analysis must additionally define an
 allowlisted payload shape for its own result before publishing an output.
+
+## Canonical analytical base
+
+P4-02 provides `queryCanonicalAnalyticalBase` in `src/analytics/base.ts`. Its inspectable SQL
+query (`canonical-analytical-base-v1`) returns one active canonical event per row, including
+`current` and `unresolved` events but never superseded events. It aggregates source backing before
+joining to the event, so a reconciled Spotify/Last.fm event remains one analytical event while
+retaining source-count and source-coverage flags. `spotifyDurationMs` is derived only from Spotify
+evidence; it is `null` for events without that evidence and must not estimate duration for
+Last.fm-only history.
+
+Calendar projections are calculated only after the caller passes an explicit IANA presentation
+timezone. The base never reads the machine timezone and exposes local day, ISO week, month,
+quarter, and year projections for later calendar-grain analyses.
