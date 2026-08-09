@@ -2,11 +2,11 @@
 
 Status: Ready for execution  
 Source: [`PROJECT_APPROACH.md`](PROJECT_APPROACH.md)  
-Plan date: 2026-07-17
+Plan date: 2026-08-09
 
 ## Mission
 
-Build a local-first, reproducible music-history laboratory that turns the unchanged Spotify and Last.fm archive into a trustworthy, explainable analytical dataset, then adds synchronization, analysis, enrichment, and visualization without losing provenance or hiding uncertainty.
+Build a local-first, reproducible music-history laboratory that turns the unchanged Spotify and Last.fm archive into a trustworthy, explainable analytical dataset, then adds synchronization, analysis, enrichment, and a privacy-reviewed public microsite without losing provenance or hiding uncertainty.
 
 This plan translates the project approach into ordered tasks sized for one focused Codex implementation session. The approach document remains authoritative for product intent and design principles; these documents are the execution map.
 
@@ -35,7 +35,7 @@ Each task in this plan has one primary outcome, a bounded set of files or compon
 | 3 | Safe incremental Last.fm synchronization | Phase 2 | [Phase 3](docs/project-plan/phase-3-lastfm-sync.md) |
 | 4 | Reproducible initial analytical products | Phase 3 | [Phase 4](docs/project-plan/phase-4-initial-analytics.md) |
 | 5 | Coverage-aware genre enrichment and eras | Phase 4 | [Phase 5](docs/project-plan/phase-5-genre-enrichment.md) |
-| 6 | Visualization and artifact layer over stable contracts | Phase 5 core contract; genre UI may follow later | [Phase 6](docs/project-plan/phase-6-visualization.md) |
+| 6 | Narrative-first public microsite over approved static snapshots | Phase 5 core contract; genre lab may be experimental or deferred | [Phase 6](docs/project-plan/phase-6-visualization.md) |
 
 ## Cross-phase dependency path
 
@@ -48,7 +48,9 @@ toolchain and configuration
   -> incremental synchronization
   -> analytical contracts and exports
   -> optional enrichment
-  -> visualization and artifacts
+  -> private analytical exports
+  -> reviewed public snapshot
+  -> static microsite and artifacts
 ```
 
 ## Global invariants
@@ -64,6 +66,12 @@ Every implementation task must preserve the following:
 - Full-history play counts remain distinct from Spotify-only duration metrics.
 - Commands are idempotent where promised, transactional, scriptable, and able to emit structured summaries.
 - Analyses report coverage, parameters, versions, uncertainty, and as-of dates where applicable.
+- Private analytical exports are never published unchanged. Public site data passes through a
+  versioned allowlist, granularity/eligibility rules, and manual approval before it can be committed
+  or deployed.
+- Imports, synchronization, reconciliation, enrichment, and analysis never publish automatically;
+  the production microsite contains no database credential, hosted query dependency, or
+  event-level listening log.
 
 ## Repository-wide quality gate
 
@@ -92,7 +100,8 @@ These decisions should be made only at the named point, with the choice and rati
 | Last.fm retry/rate defaults | Phase 3 | API behavior and deterministic client tests |
 | Era/rediscovery/abandonment defaults | Phase 4 | Documented analytical definitions and sensitivity examples |
 | Genre providers and taxonomy | Phase 5 | Licensing, cacheability, coverage, provenance, and quality |
-| Web framework and visualization libraries | Phase 6 | Stable analytical contracts and local-first deployment needs |
+| Public publication and editorial contract | Phase 6, P6-02 | Field exposure, date granularity, artist eligibility, selected-track policy, review/rollback, and third-party requests |
+| Static web framework and visualization libraries | Phase 6, P6-03 | Stable analytical contracts, GitHub Pages compatibility, accessibility, progressive enhancement, bundle cost, and maintenance |
 
 ## Final completion criteria
 
@@ -104,4 +113,6 @@ The initial project mission is fulfilled when:
 4. Incremental Last.fm synchronization is idempotent and failure-safe.
 5. Listening volume, artist eras, rediscovery, abandonment, and coverage reports are reproducible and disclose limitations.
 6. Genre-era results, when enabled, disclose provider, taxonomy, weighting, freshness, and coverage.
-7. Visualizations consume stable analytical outputs and visibly communicate gaps and uncertainty.
+7. `music.the816.com` is reproducibly built and deployed as a static GitHub Pages site from an
+   explicitly approved public snapshot, visibly communicates gaps and uncertainty, and ships no
+   unapproved private data.

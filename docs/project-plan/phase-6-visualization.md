@@ -1,139 +1,304 @@
-# Phase 6: Visualization and Artifact Layer
+# Phase 6: Public Music-History Microsite
 
 ## Objective
 
-Build a local-first interface and static artifacts over versioned analytical contracts. The presentation layer must make source gaps, metric scope, reconciliation uncertainty, enrichment coverage, parameters, and as-of dates visible rather than requiring knowledge of raw export formats.
+Publish a narrative-first, accessible microsite at `music.the816.com` that lets visitors explore a
+privacy-reviewed version of the listening history without turning the local-first laboratory into a
+hosted application. The production site must be a static GitHub Pages artifact built from an
+explicitly approved, versioned public snapshot rather than from private inputs, the local SQLite
+database, or the private analytical bundle at runtime.
+
+The experience should lead with the long arc of the listening history, then support deeper
+artist-era exploration, selected track stories, rediscovery, dormancy, and data coverage. Every
+view must make source gaps, metric scope, reconciliation uncertainty, enrichment coverage,
+parameters, and as-of dates visible without requiring knowledge of raw export formats.
 
 ## Entry criteria
 
 - Phase 4 analytical exports and coverage contracts are stable and versioned.
-- Phase 5 genre contracts are stable enough to include, or genre views are explicitly deferred/experimental.
-- No visualization requires direct access to private source files.
+- Phase 5 genre contracts are stable enough to support an explicitly experimental view, or genre
+  presentation is deferred.
+- No presentation requirement needs direct access to private source files or source-shaped tables.
+- The repository remains one pnpm package unless P6-03 documents a demonstrated boundary requiring
+  otherwise.
+
+## Phase invariants
+
+- Ingestion, reconciliation, enrichment, and analysis remain local-first and rebuildable. GitHub
+  Pages is a publication target, not an operational database or analytical runtime.
+- The existing analytical bundle remains private derived personal data and is never published
+  unchanged.
+- Production consumes only a narrow, schema-validated public snapshot produced through an explicit
+  allowlist and manual review step.
+- A synchronization, import, enrichment, or analysis run never publishes data automatically.
+- No secret or database credential is shipped to the browser. The initial production architecture
+  has no hosted query service, runtime API, Turso dependency, or visitor account system.
+- Public artist detail is limited by documented significance/eligibility rules. Track detail appears
+  only in manually selected editorial stories; the site never exposes an event-level listening log.
+- Full-history play counts remain visibly distinct from Spotify-backed duration, completion, skip,
+  and thresholded metrics.
 
 ## Ordered tasks
 
-### P6-01 — Define user journeys and information hierarchy
+### P6-01 — Define the public narrative, journeys, and information hierarchy
 
-**Depends on:** Phase 4; Phase 5 status known
+**Depends on:** Phase 4; Phase 5 fitness status known
 
 **Work:**
 
-- Define the first journeys: history overview, volume exploration, artist era exploration, rediscovery, dormancy/likely abandonment, data coverage, and optional genre eras.
-- Identify the question, default view, filters, drill-down, uncertainty disclosure, empty state, and export action for each journey.
-- Establish accessibility, responsive-layout, and local-only privacy requirements.
+- Define the public audience and the narrative promise: a long-form personal music history with an
+  analytical explorer, not an internal dashboard or generic streaming recap.
+- Specify the first routes and journeys: narrative overview/long view, history and coverage,
+  artist-era exploration, selected artist detail, curated rediscovery and dormancy stories, a
+  deeper explorer, methodology, and an optional experimental genre lab.
+- For each journey, document its question, narrative role, default view, filters, URL-addressable
+  state, drill-down, supporting analytical contract, uncertainty disclosure, empty state, tabular
+  alternative, and bounded export/share action.
+- Define the editorial content model for annotations, featured artists, and selected track stories
+  without embedding private archive records in authored content.
+- Establish responsive, keyboard, screen-reader, reduced-motion, color/contrast, progressive
+  enhancement, and no-JavaScript expectations.
 
-**Acceptance:** a concise product specification maps each view to an existing analytical contract and contains no requirement to query raw export formats.
+**Acceptance:** a concise product specification maps every route and interaction to stable
+analytical inputs or explicitly authored public content, identifies the first-release narrative,
+and contains no requirement to query raw exports, SQLite, or a hosted service.
 
-### P6-02 — Select and document the web/visualization stack
+### P6-02 — Define the public-data and publication privacy contract
 
 **Depends on:** P6-01
 
 **Work:**
 
-- Evaluate options against local-first startup, TypeScript integration, static/server data loading, chart accessibility, bundle complexity, maintenance, and analytical-contract compatibility.
-- Choose the smallest stack that supports the journeys and record alternatives and rationale.
-- Define whether the single package remains sufficient or a package boundary is now justified; do not create a monorepo without demonstrated need.
+- Classify every candidate field as private-only, public aggregate, eligible artist detail, or
+  manually selected editorial detail.
+- Define public date granularity, artist eligibility/significance rules, long-tail suppression,
+  selected-track allowlisting, stable public slugs, result limits, and treatment of small or sparse
+  groups.
+- Exclude individual listening events, private analytical-bundle passthrough, internal/source IDs,
+  source paths and filenames, fingerprints, raw provider payloads, credentials, and all previously
+  excluded sensitive fields.
+- Define a versioned public manifest and artifact schemas with generation version, analytical
+  versions, timezone, as-of date, publication date, coverage, hashes, and selection-policy version.
+- Define the manual approval, diff/report, withdrawal, rollback, and supersession workflow. Specify
+  which generated public artifacts are intentionally committed and how they remain distinguishable
+  from ignored private outputs.
+- Decide and document policies for downloadable data, external links, artwork/licensing, fonts,
+  visitor analytics, third-party requests, and site privacy disclosure.
 
-**Acceptance:** the decision record names deployment/runtime, data-loading, charting, testing, and accessibility strategies before UI scaffolding begins.
+**Acceptance:** contract and privacy tests can prove the public schema is allowlisted, rejects an
+unknown or forbidden field, applies the chosen granularity and selection rules, and cannot express
+an event-level listening log. A reviewer can determine exactly what a proposed snapshot would make
+public before approving it.
 
-### P6-03 — Implement the analytical data adapter
+### P6-03 — Confirm and document the static web/visualization stack
 
-**Depends on:** P6-02
-
-**Work:**
-
-- Validate and load versioned analytical exports or a narrow project-owned read API.
-- Reject incompatible/stale schemas with actionable messages.
-- Expose typed view models without leaking database/source-table details into components.
-- Provide deterministic fixture datasets for UI tests and component development.
-
-**Acceptance:** adapter tests cover each artifact, missing/old versions, empty history, incomplete genre coverage, and offline/local operation.
-
-### P6-04 — Build the shared application shell and disclosure system
-
-**Depends on:** P6-03
-
-**Work:**
-
-- Build navigation, date/timezone controls, metric definitions, source/coverage indicators, loading/error/empty states, and accessible responsive layout.
-- Create reusable disclosure components for Spotify-only duration, gaps, unresolved proportion, genre coverage/freshness, parameters, and as-of dates.
-- Ensure colors and interactions do not carry meaning without text or accessible alternatives.
-
-**Acceptance:** automated accessibility checks and keyboard tests pass; every view can display its analytical envelope and coverage warnings consistently.
-
-### P6-05 — Implement history volume and coverage views
-
-**Depends on:** P6-04
+**Depends on:** P6-01 and P6-02
 
 **Work:**
 
-- Add interactive time-grain and date-range exploration for play count and clearly distinct Spotify-only listened time.
-- Overlay or align source coverage, gaps, and suspicious discontinuities.
-- Provide accessible tabular alternatives and data export.
+- Confirm Astro static output for the narrative shell, Preact islands for bounded interactive
+  explorers, Observable Plot for accessible analytical charts, and project-owned SVG only where an
+  era visualization cannot be expressed adequately through the chart library.
+- Verify compatibility with the pinned Node.js 24/pnpm 9 single-package toolchain and static GitHub
+  Pages deployment before adding dependencies.
+- Record alternatives and rationale against static output, TypeScript integration, progressive
+  enhancement, bundle cost, chart composition, accessibility, maintenance, testability, and public
+  snapshot compatibility.
+- Define project-owned adapter, view-model, component, content, style, and page boundaries without
+  coupling the site to SQLite or source-table representations.
+- Define unit/component testing, browser testing, accessibility automation, visual-regression
+  scope, performance budgets, and supported-browser policy.
 
-**Acceptance:** a user cannot mistake duration for full-history coverage; 2017–2024 Last.fm absence and other gaps are visible; totals match fixture analytical outputs.
+**Acceptance:** a decision record names the build/runtime, data-loading, charting, interaction,
+styling, testing, accessibility, and GitHub Pages strategies. It explains why no hosted database,
+server runtime, or monorepo is required for the initial microsite.
 
-### P6-06 — Implement artist-era exploration
+### P6-04 — Implement the private-to-public snapshot pipeline
 
-**Depends on:** P6-04
-
-**Work:**
-
-- Visualize artist intervals, peaks, strength, share, overlap, and component evidence.
-- Support parameter visibility and bounded comparison/filtering without implying eras are permanent labels.
-- Provide accessible detail and table views.
-
-**Acceptance:** interval boundaries and component values match analytical fixtures; sparse-data cases and overlapping eras remain legible and qualified.
-
-### P6-07 — Implement rediscovery and abandonment views
-
-**Depends on:** P6-04
-
-**Work:**
-
-- Show prior listen, absence gap, return intensity, persistence, related era, and rediscovery class.
-- Present dormancy/likely abandonment with as-of date, confidence components, observation window, and right-censoring warnings.
-- Make later rediscovery visibly invalidate older abandonment conclusions where represented.
-
-**Acceptance:** wording never states abandonment as fact; all classifications expose supporting parameters/evidence and match analytical fixture results.
-
-### P6-08 — Implement genre-era views when fit for use
-
-**Depends on:** Phase 5 gate and P6-04
+**Depends on:** P6-02 and P6-03
 
 **Work:**
 
-- If Phase 5 declared results fit for use, visualize weighted genre intervals with raw/curated modes, provider, taxonomy, freshness, weighting level, and coverage.
-- If experimental, place the view behind an explicit experimental status with limitations, or defer it and record the gate for later activation.
+- Validate and load the stable private analytical bundle through a project-owned adapter; reject
+  missing, stale, incompatible, or internally inconsistent artifacts with sanitized actionable
+  errors.
+- Project only the P6-02 allowlisted fields and aggregations into the versioned public artifacts,
+  applying public date granularity, artist eligibility, result bounds, and editorial selections.
+- Produce deterministic filenames, serialization, hashes, and a manifest; stage the complete
+  snapshot before replacing a prior generated candidate.
+- Produce a deterministic publication report and human-reviewable diff summary covering exposed
+  fields, entity/story counts, date ranges, versions, coverage, additions, removals, and material
+  granularity changes without echoing private rejected payloads.
+- Keep candidate generation separate from explicit approval. An approved snapshot must be
+  reproducible, identifiable, and capable of being rolled back without regenerating private data.
+- Add small deterministic public fixture snapshots for site development and tests.
 
-**Acceptance:** no genre chart appears without visible coverage and taxonomy context; partial enrichment is never plotted as though it covers all events.
+**Acceptance:** tests cover every public artifact plus empty history, incompatible/stale private
+input, forbidden and unknown fields, date reduction, threshold boundaries, track-story selection,
+deterministic reruns, failed staging, snapshot supersession, and rollback. The output contains no
+private-only field and does not require the local database after generation.
 
-### P6-09 — Add static artifact generation
+### P6-05 — Build the narrative shell and disclosure system
 
-**Depends on:** P6-05 through P6-08 as applicable
+**Depends on:** P6-03 and P6-04
 
 **Work:**
 
-- Add selected privacy-reviewed static exports such as images, printable reports, or exchange files derived from the same view models.
-- Include generation/version/coverage context in each artifact.
-- Define explicit opt-in if an artifact contains personally revealing listening details.
+- Build the static route shell, navigation, typography, responsive layout, shared metadata,
+  canonical URLs, social metadata, not-found page, and a cohesive visual language appropriate to a
+  personal music-history publication.
+- Build reusable narrative-section, chart, annotation, filter, table, loading/error/empty-state,
+  and editorial-story components.
+- Build consistent disclosures for metric definitions, Spotify-only duration, source gaps,
+  unresolved proportion, genre coverage/freshness, analytical parameters, timezone, and as-of and
+  publication dates.
+- Make meaningful route and explorer state directly linkable while preserving usable static
+  content and methodology when JavaScript is unavailable.
+- Ensure color, motion, hover, and spatial position never carry meaning without text or another
+  accessible representation.
 
-**Acceptance:** artifacts reproduce view totals, contain required disclosures, and never include excluded source fields or secrets.
+**Acceptance:** the complete route shell builds as static files, works responsively with keyboard
+and reduced-motion settings, exposes consistent analytical envelopes, and provides meaningful
+content and navigation before optional interactive islands hydrate.
 
-### P6-10 — Complete end-to-end, accessibility, privacy, and performance verification
+### P6-06 — Implement the long-view history and coverage experience
 
-**Depends on:** P6-01 through P6-09
+**Depends on:** P6-05
 
 **Work:**
 
-- Test from a rebuilt fixture database through analytics generation to rendered views/artifacts.
-- Add critical browser journeys, visual regression where stable, keyboard/screen-reader checks, and representative performance budgets.
-- Perform a privacy review of bundled data, network behavior, logs, errors, and exports.
-- Document local setup, regeneration, troubleshooting, and artifact sharing cautions.
+- Create the narrative homepage around a long-view timeline spanning the retained history, with
+  authored context and clear paths into deeper exploration.
+- Add interactive time grain and bounded date-range exploration for full-history play count and
+  clearly distinct Spotify-backed listened time or thresholded metrics when public-contract
+  coverage permits them.
+- Align listening volume with source coverage, gaps, overlap, and suspicious discontinuities so
+  apparent behavioral changes are not separated from evidence quality.
+- Make the known 2017–2024 Last.fm absence, Last.fm-only early history, and the right-censored recent
+  edge visible and understandable.
+- Provide accessible summaries and tables plus privacy-reviewed view-level downloads where P6-02
+  permits them.
 
-**Acceptance:** the app works offline/local as designed; UI totals match analytics; quality/accessibility budgets pass; no raw private export or excluded field is shipped; a fresh checkout can reproduce the fixture experience.
+**Acceptance:** a visitor cannot mistake duration for full-history coverage or a source gap for an
+absence of listening. Totals match the public fixture/view models, URL state is reproducible, and
+the principal long-view findings are available without interpreting the chart visually.
+
+### P6-07 — Implement artist-era exploration and eligible artist detail
+
+**Depends on:** P6-05
+
+**Work:**
+
+- Visualize eligible artist intervals, peaks, strength, share, overlap, and component evidence as
+  parameterized signals rather than permanent labels.
+- Support bounded search, comparison, filtering, and URL-addressable artist/range selection without
+  loading or exposing the private long tail.
+- Generate static, indexable artist detail only for entities admitted by the P6-02 eligibility
+  policy. Show public monthly/period summaries and era context rather than individual plays.
+- Connect authored featured-artist context and selected track stories without treating editorial
+  interpretation as analytical fact.
+- Provide textual summaries and table views for era intervals and component values.
+
+**Acceptance:** public artist eligibility is enforced before build/render, interval boundaries and
+components match public fixtures, sparse and overlapping eras remain qualified, selected track
+detail comes only from the editorial allowlist, and no page reconstructs an event-level history.
+
+### P6-08 — Implement curated rediscovery and dormancy stories
+
+**Depends on:** P6-05 and P6-07
+
+**Work:**
+
+- Present selected artist and track returns with reduced-date prior listen, absence gap, return
+  intensity, persistence, related era, and rediscovery class.
+- Distinguish one-off returns, sustained rediscoveries, and returns that begin a new era, while
+  acknowledging source gaps that may resemble absences.
+- Present dormancy as a bounded, reversible, as-of observation with confidence components,
+  observation window, and right-censoring warnings; never state abandonment as permanent fact.
+- Make later rediscovery visibly supersede an older dormancy conclusion when both approved
+  snapshots or narrative records are represented.
+- Use editorial selection to keep the experience story-led; provide a bounded analytical explorer
+  only over the public eligible cohort.
+
+**Acceptance:** wording and interactions do not overclaim absence or abandonment, every story and
+classification exposes its approved evidence/parameters, later observations supersede rather than
+silently rewrite prior conclusions, and selected track names cannot enter through unreviewed data.
+
+### P6-09 — Add or explicitly defer the experimental genre lab
+
+**Depends on:** Phase 5 gate, P6-02, and P6-05
+
+**Work:**
+
+- Reconfirm the Phase 5 fitness assessment against the snapshot intended for publication.
+- If included, isolate genre views behind an explicit experimental treatment showing raw mode,
+  MusicBrainz provider, nullable taxonomy, artist-level weighting, freshness, and usable-event
+  coverage overall and across time.
+- Explain that provider tags can be sparse, current rather than historically contemporaneous, and
+  unrepresentative of the complete history.
+- If the treatment cannot communicate the limitations without misleading visitors, defer the route
+  and record the evidence and product gate required to activate it later.
+
+**Acceptance:** either no genre route/data ships and the deferral is documented, or every genre
+view is unmistakably experimental and displays provider, mode, taxonomy, weighting, freshness, and
+coverage. Partial enrichment is never plotted as complete history.
+
+### P6-10 — Implement reviewed publication and GitHub Pages deployment
+
+**Depends on:** P6-04 through P6-09 as applicable
+
+**Work:**
+
+- Add explicit commands for generating a candidate snapshot, validating/reviewing it, approving it
+  for publication, building the production site from the approved snapshot, and verifying the
+  deployed artifact. Preserve concise human output plus structured summaries where automation is
+  appropriate.
+- Add a GitHub Actions workflow that installs the pinned toolchain, runs the applicable quality and
+  site gates, builds only from committed approved public data, uploads the static Pages artifact,
+  and deploys through the protected `github-pages` environment.
+- Configure the canonical custom domain `music.the816.com`, HTTPS, base/canonical URL behavior,
+  cacheable hashed assets, and safe rollback to a prior deployment.
+- Ensure normal pushes redeploy the last approved snapshot but cannot regenerate or approve new
+  private-derived data. Document the manual snapshot release cadence and responsibilities.
+- Document local preview, approval, deployment, DNS/domain setup, rollback, troubleshooting, and
+  publication cautions.
+
+**Acceptance:** a fresh checkout containing only committed project files and an approved public
+snapshot can reproduce the exact static site; fixture/PR builds cannot publish; only the protected
+deployment job can update Pages; the custom domain serves the intended artifact over HTTPS; and a
+prior approved snapshot/deployment can be restored without private inputs.
+
+### P6-11 — Complete end-to-end, accessibility, privacy, content, and performance verification
+
+**Depends on:** P6-01 through P6-10
+
+**Work:**
+
+- Test the deterministic fixture path from a rebuilt fixture database through private analytics,
+  public projection, static build, and rendered journeys.
+- Verify a manually approved archive snapshot locally using only aggregate and allowlisted
+  publication findings; do not commit or log private source or private analytical content.
+- Add critical browser journeys, direct/deep-link checks, JavaScript-disabled checks, keyboard and
+  screen-reader-oriented assertions, automated accessibility checks, and stable visual regression.
+- Enforce representative budgets for generated pages, JavaScript, data payloads, chart rendering,
+  and initial/deferred loading. Lazy-load or shard bounded explorer data where evidence shows it is
+  necessary.
+- Audit the built artifact, source maps, manifests, network requests, console output, errors,
+  metadata, downloads, and repository history for forbidden or unapproved data and secrets.
+- Review narrative claims, analytical totals, links, responsive layouts, reduced motion, social
+  metadata, methodology, privacy notice, version/as-of disclosure, and genre experimental status.
+- Run a production smoke test for `music.the816.com` after deployment without adding visitor
+  tracking unless P6-02 explicitly approved it.
+
+**Acceptance:** fixture totals reconcile from database to rendered views; all applicable quality,
+accessibility, privacy, content, and performance gates pass; no private input, private bundle,
+secret, or unapproved field is shipped; the deployed site communicates limitations honestly; and
+the approved snapshot, site artifact, and deployment are reproducible and rollback-safe.
 
 ## Phase gate
 
-Phase 6 is complete when the first user journeys work over stable analytical interfaces, communicate source/coverage/uncertainty honestly, pass accessibility and privacy review, and require no knowledge of raw Spotify or Last.fm formats.
-
+Phase 6 is complete when `music.the816.com` presents a compelling, accessible narrative and
+explorer over an explicitly approved public snapshot; communicates source coverage, metric scope,
+parameters, uncertainty, genre limitations, and as-of/publication dates honestly; contains no
+unapproved private data; and can be regenerated, reviewed, deployed, and rolled back reproducibly
+without a hosted database or knowledge of raw Spotify or Last.fm formats.

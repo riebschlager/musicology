@@ -1,13 +1,18 @@
 # Musicology Project Approach
 
-Status: Draft for review  
-Last updated: 2026-07-17
+Status: Approved
+Last updated: 2026-08-09
 
 ## 1. Purpose
 
-Musicology is a local-first system for importing, reconciling, exploring, and eventually visualizing more than twenty years of personal music-listening history.
+Musicology is a local-first system for importing, reconciling, exploring, and publishing a
+privacy-reviewed view of more than twenty years of personal music-listening history.
 
-The initial project will use TypeScript on Node.js, pnpm, and SQLite. Its first responsibility is to turn historical Spotify and Last.fm data into a trustworthy, explainable analytical dataset. Later responsibilities include incremental Last.fm synchronization, enrichment, reusable analysis, web visualizations, and other artifacts.
+The initial project will use TypeScript on Node.js, pnpm, and SQLite. Its first responsibility is
+to turn historical Spotify and Last.fm data into a trustworthy, explainable analytical dataset.
+Later responsibilities include incremental Last.fm synchronization, enrichment, reusable analysis,
+and a narrative-first static microsite at `music.the816.com` built from an explicitly approved
+public snapshot.
 
 The system should make it possible to answer questions such as:
 
@@ -33,6 +38,15 @@ The project is not merely an importer. It is intended to become a durable person
 - Spotify country and platform fields will be omitted from the version 1 database.
 - The default play count will include every canonical track event; thresholded counts will be optional secondary metrics.
 - The project will remain local-first. A hosted database or service is not required for initial ingestion, analysis, or visualization.
+- Phase 6 will publish a static GitHub Pages microsite at `music.the816.com`; GitHub Pages is a
+  publication target, not the operational database or analytical runtime.
+- The microsite will be narrative-first with a deeper explorer, public artist-level detail limited
+  by documented eligibility rules, and track detail only in manually selected stories.
+- Production will consume a versioned, allowlisted public snapshot derived from the private
+  analytical bundle. Snapshot generation and approval will be manual and reviewable; data-pipeline
+  commands will never publish automatically.
+- The planned presentation stack is Astro static output, Preact islands for bounded interaction,
+  Observable Plot for analytical charts, and project-owned SVG where necessary.
 
 As of this draft, Node.js 24 is the active LTS line; Node.js 26 remains Current until October 2026. The repository should pin the selected major version without pinning this document to a particular patch release. See the official [Node.js release table](https://nodejs.org/en/about/previous-releases).
 
@@ -73,13 +87,16 @@ These observations are a baseline, not permanent assumptions. Import validation 
 7. Provide stable analytical views or queries for the first insight families.
 8. Make uncertainty, gaps, and source limitations visible in every downstream result.
 9. Keep the database portable, inspectable, and easy to rebuild from source.
+10. Publish a compelling, accessible public microsite from an explicitly reviewed static snapshot
+    without exposing the private archive, database, analytical bundle, or event-level history.
 
 ### 4.2 Initial non-goals
 
 - Podcast, audiobook, or video analysis
 - Real-time scrobbling to Last.fm
 - Editing listening history on Spotify or Last.fm
-- A cloud-hosted multi-user service
+- A cloud-hosted multi-user application, visitor account system, or runtime query API; the static
+  public microsite is a publication artifact rather than such a service
 - A universal music metadata catalog
 - Perfect automatic resolution of every artist, release, and track alias
 - Treating inferred genre, rediscovery, or abandonment labels as objective facts
@@ -115,6 +132,11 @@ Counts can use the full reconciled history. Listening time, completion, and skip
 
 The database should contain only fields needed for the project. IP addresses, user-agent strings, account usernames copied from private exports, secrets, Spotify country, and Spotify platform are excluded from version 1. They may remain in the unchanged historical files, which should not be committed to a public repository.
 
+Public release requires a narrower boundary than analytical validity. The private analytical bundle
+must never be published unchanged. A versioned public projection must allowlist fields, reduce date
+granularity, enforce artist eligibility and selected-track rules, produce a reviewable disclosure
+report, and require explicit approval before its artifacts can be committed or deployed.
+
 ## 6. Proposed architecture
 
 The first architecture is a set of composable command-line workflows sharing a domain model and a SQLite database:
@@ -133,13 +155,18 @@ Last.fm API ───────> fetch ────> source-shaped import tabl
                                          canonical listening events
                                                                │
                                                                v
-                                        analytical views / exports
+                                  private analytical views / exports
                                                                │
                                                                v
-                                      web visualizations + artifacts
+                                        reviewed public snapshot
+                                                               │
+                                                               v
+                                static microsite + public artifacts
 ```
 
-This should begin as one Node.js package, not a monorepo. The pipeline, analytics, and future web server can be separated later if the boundaries become useful in practice.
+This should remain one Node.js package, not a monorepo, unless implementation demonstrates a useful
+boundary. The static site depends on project-owned public snapshot contracts, not on SQLite or
+source-table representations.
 
 ### 6.1 Proposed repository shape
 
@@ -147,7 +174,8 @@ This should begin as one Node.js package, not a monorepo. The pipeline, analytic
 data/
   inputs/                 # immutable private exports
   database/               # generated SQLite database; not committed
-  outputs/                # generated reports or exchange files
+  outputs/                # generated private reports or exchange files; not committed
+  publication/            # explicitly approved public snapshots
 migrations/               # ordered, committed SQL migrations
 queries/                  # substantial named analytical SQL
 src/
@@ -163,12 +191,17 @@ src/
   identity/               # normalization and alias handling
   reconciliation/         # candidates, scores, and decisions
   analytics/              # parameterized analyses and result contracts
+  publication/            # private-to-public projection, validation, and review
+site/                     # static pages, authored stories, components, styles, and public adapters
 tests/
   fixtures/               # small synthetic and anonymized source samples
   integration/
 ```
 
-The private exports and generated database should be ignored by Git. Small anonymized or synthetic fixtures should be committed for deterministic tests.
+Private inputs, private generated outputs, and the generated database should be ignored by Git.
+Only artifacts that have passed the Phase 6 public projection and explicit approval workflow may be
+committed under the public publication boundary. Small anonymized or synthetic fixtures should be
+committed for deterministic tests.
 
 ## 7. Technology approach
 
@@ -211,6 +244,19 @@ Dependencies should be selected during implementation and kept deliberately smal
 - Formatting and linting: repository-wide tools with deterministic CI commands
 
 No library choice in this section should override the core requirement that import behavior and reconciliation decisions remain testable and understandable.
+
+### 7.4 Static presentation and publication
+
+Phase 6 uses Astro static output for the narrative shell, Preact islands only where interaction
+requires client state, and Observable Plot for most analytical charts. Project-owned SVG may handle
+specialized artist-era compositions that the chart library cannot express adequately. The site is
+built for GitHub Pages and the custom domain `music.the816.com`; it has no production server,
+database credential, hosted query dependency, or visitor account system.
+
+The presentation consumes only a project-owned, versioned public snapshot. Private analytical
+exports remain ignored derived personal data. A separate publication workflow validates an
+allowlisted projection, reports what would become public, requires manual approval, and then allows
+the approved static artifacts to be committed for reproducible build and rollback.
 
 ## 8. Data layers and conceptual schema
 
@@ -691,14 +737,22 @@ Exit condition: each analysis has a documented definition, coverage metadata, te
 
 Exit condition: genre results report taxonomy, weighting, provider, and coverage and can be regenerated independently of core ingestion.
 
-### Phase 6: Visualization and artifact layer
+### Phase 6: Public music-history microsite
 
-- Choose the first web stack based on the analytical output contracts rather than prematurely coupling it to import code.
-- Build interactive timelines and era/rediscovery views.
-- Make source coverage and uncertainty visible in the interface.
-- Add static export formats for other artifacts.
+- Define the public narrative, information hierarchy, editorial model, and privacy/publication
+  contract.
+- Generate a deterministic, allowlisted public snapshot from the private analytical bundle with a
+  manual review and approval boundary.
+- Build the Astro/Preact/Observable Plot static experience around the long view, coverage,
+  artist-era exploration, selected track stories, rediscovery, and dormancy.
+- Include genre only as an unmistakably experimental lab when the Phase 5 fitness assessment can be
+  communicated honestly; otherwise defer it.
+- Deploy the approved static artifact through GitHub Pages at `music.the816.com` with reproducible
+  build, verification, and rollback.
 
-Exit condition: visualizations consume stable analytical interfaces and do not need direct knowledge of raw export formats.
+Exit condition: the public microsite consumes only approved static interfaces, visibly communicates
+coverage and uncertainty, contains no unapproved private data, and can be regenerated, reviewed,
+deployed, and rolled back without private inputs at runtime or knowledge of raw export formats.
 
 ## 20. Risks and mitigations
 
@@ -714,18 +768,25 @@ Exit condition: visualizations consume stable analytical interfaces and do not n
 | API retry creates duplicates | Safety overlap plus deterministic unique fingerprints |
 | API failure loses events | Advance cursor only after complete success; bounded recovery modes |
 | Sensitive data leaks into derived artifacts | Schema allowlist, log redaction, private input paths, explicit tests |
+| Valid private analytical detail is published unintentionally | Separate public schema, date reduction, artist eligibility, selected-track allowlist, disclosure report, and manual approval |
+| Data refresh silently changes the public story | Candidate/approved snapshot separation, deterministic diffs, explicit approval, versioned manifests, and rollback |
+| Static site grows into an unnecessary hosted application | GitHub Pages static output, no runtime API/database credential, bounded client-side explorers, activation evidence before adding a service |
 | Database becomes irreproducible | Immutable inputs, committed migrations, versioned rules, exportable manual decisions |
 | Tool churn constrains the project | Thin adapters, explicit SQL, small dependency surface, stable domain contracts |
 
 ## 21. Decisions still to make
 
-These decisions are intentionally deferred until they become relevant:
+The remaining Phase 6 decisions are intentionally deferred to the evidence-gathering tasks named in
+the detailed plan:
 
-1. Which genre/enrichment providers and curated taxonomy to use.
-2. The exact high-confidence reconciliation threshold after inspecting a labeled sample of real overlap.
-3. Whether manual reconciliation decisions live in a committed private data file, a database export, or both.
-4. The initial web framework and visualization libraries.
+1. The exact public artist eligibility threshold and first set of authored artist/track stories.
+2. Whether the initial release should include the experimental genre lab or defer it until coverage
+   and taxonomy improve.
+3. Whether any third-party artwork, fonts, or visitor analytics meet the Phase 6 publication and
+   privacy contract; none are required by default.
 
 ## 22. Immediate next step
 
-Review and revise this approach before project scaffolding begins. Once accepted, Phase 0 should translate these principles into a minimal TypeScript project, a versioned schema, synthetic fixtures, and executable invariants without beginning visualization work prematurely.
+Begin Phase 6 with P6-01: turn the agreed narrative-first direction into a concise public product
+specification, route/journey map, analytical-contract mapping, editorial content model, and
+accessibility/progressive-enhancement requirements before defining the public snapshot contract.
