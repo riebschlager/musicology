@@ -10,7 +10,9 @@ to and committed under `data/publication/approved/<snapshot-id>/`, together with
 and active-snapshot pointer. Private analytical bundles and generated candidates/reports remain
 under ignored `data/outputs`; placing a file under `data/publication` does not itself approve it.
 The complete boundary and withdrawal/rollback workflow are defined in
-[`decisions/phase-6-publication-contract.md`](decisions/phase-6-publication-contract.md).
+[`decisions/phase-6-publication-contract.md`](decisions/phase-6-publication-contract.md). The
+implemented projection, deterministic hashing, staging, approval, and active-pointer behavior are
+documented in [`public-snapshot-pipeline.md`](public-snapshot-pipeline.md).
 
 Version 1 excludes the following data from SQLite, logs, errors, rejection diagnostics, fixtures, reports, and generated artifacts:
 

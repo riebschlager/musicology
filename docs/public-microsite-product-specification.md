@@ -421,17 +421,21 @@ embedded in content metadata.
 
 ### Selected track story
 
-A selected-track story references a separately reviewed track-selection entry in the public
-publication artifacts. The selection entry supplies the only approved track identity and reduced
-analytical evidence; the authored story supplies title treatment, narrative, interpretation, and
-related public references. Removing or withdrawing the selection makes the story fail validation
-instead of falling back to a private analytical record. No story can enumerate the track's plays or
-reconstruct an event history.
+A selected-track story references a separately reviewed manual track-selection entry in the public
+publication artifacts. The selection entry supplies only the approved artist display name, track
+display name, story slug, and public track slug; it does not resolve to a private analytical
+candidate or supply track-level analytical evidence. The authored story supplies title treatment,
+narrative, interpretation, and related public references. Any numerical or classified evidence in
+the story must independently resolve to its stated bundle-backed scope. Removing or withdrawing the
+manual selection makes the track identity fail validation instead of falling back to a private
+analytical record. No story can enumerate the track's plays or reconstruct an event history.
 
 ### Review invariants
 
 - Authored content cannot introduce a track name merely because it appears in private rediscovery
-  output; the track-selection allowlist is authoritative.
+  output; the wholly manual, explicitly reviewed track-selection allowlist is authoritative.
+- A selected track is editorial identity, not evidence that a track-level return, gap, persistence,
+  or listening metric was analytically established.
 - Annotations and stories cannot include source filenames, paths, account identifiers, internal
   IDs, fingerprints, precise private events, or excluded source fields.
 - Numeric claims and analytical classifications must resolve to the same approved snapshot/version

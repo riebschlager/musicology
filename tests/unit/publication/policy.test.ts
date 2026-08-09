@@ -99,25 +99,13 @@ describe("public selection policy", () => {
     );
   });
 
-  it("admits track display detail only through the manual story allowlist", () => {
-    const candidates = [
-      {
-        artistDisplayName: "Synthetic Artist",
-        selectionKey: "private-selection-a",
-        trackDisplayName: "Selected Synthetic Track",
-      },
-      {
-        artistDisplayName: "Another Synthetic Artist",
-        selectionKey: "private-selection-b",
-        trackDisplayName: "Unselected Synthetic Track",
-      },
-    ];
-
+  it("admits wholly manual track identity only through the reviewed story allowlist", () => {
     assert.deepEqual(
-      selectEditorialTrackDetails(candidates, [
+      selectEditorialTrackDetails([
         {
-          selectionKey: "private-selection-a",
+          artistDisplayName: "Synthetic Artist",
           storySlug: "selected-return",
+          trackDisplayName: "Selected Synthetic Track",
           trackSlug: "selected-synthetic-track",
         },
       ]),
@@ -130,68 +118,73 @@ describe("public selection policy", () => {
         },
       ],
     );
-    assert.throws(
-      () =>
-        selectEditorialTrackDetails(candidates, [
-          {
-            selectionKey: "missing-selection",
-            storySlug: "missing-story",
-            trackSlug: "missing-track",
-          },
-        ]),
-      /does not resolve to one candidate/u,
-    );
   });
 
-  it("never echoes private selection keys in policy errors", () => {
-    const privateKey = "private-artist-id-123";
+  it("rejects duplicate manual track identities, story assignments, and public slugs", () => {
     const operations = [
       () =>
-        selectEditorialTrackDetails(
-          [],
-          [{ selectionKey: privateKey, storySlug: "missing-story", trackSlug: "missing-track" }],
-        ),
+        selectEditorialTrackDetails([
+          {
+            artistDisplayName: "Synthetic Artist",
+            storySlug: "story-one",
+            trackDisplayName: "Synthetic Track",
+            trackSlug: "track-one",
+          },
+          {
+            artistDisplayName: "Synthetic Artist",
+            storySlug: "story-two",
+            trackDisplayName: "Synthetic Track",
+            trackSlug: "track-two",
+          },
+        ]),
       () =>
-        selectEditorialTrackDetails(
-          [
-            {
-              artistDisplayName: "Synthetic Artist",
-              selectionKey: privateKey,
-              trackDisplayName: "Synthetic Track",
-            },
-          ],
-          [
-            { selectionKey: privateKey, storySlug: "story-one", trackSlug: "track-one" },
-            { selectionKey: privateKey, storySlug: "story-two", trackSlug: "track-two" },
-          ],
-        ),
+        selectEditorialTrackDetails([
+          {
+            artistDisplayName: "Synthetic Artist",
+            storySlug: "story-one",
+            trackDisplayName: "Synthetic Track",
+            trackSlug: "track-one",
+          },
+          {
+            artistDisplayName: "Synthetic Artist Two",
+            storySlug: "story-one",
+            trackDisplayName: "Synthetic Track Two",
+            trackSlug: "track-two",
+          },
+        ]),
       () =>
-        selectEditorialTrackDetails(
-          [
-            {
-              artistDisplayName: "Synthetic Artist",
-              selectionKey: privateKey,
-              trackDisplayName: "Synthetic Track",
-            },
-            {
-              artistDisplayName: "Synthetic Artist Two",
-              selectionKey: privateKey,
-              trackDisplayName: "Synthetic Track Two",
-            },
-          ],
-          [],
-        ),
+        selectEditorialTrackDetails([
+          {
+            artistDisplayName: "Synthetic Artist",
+            storySlug: "story-one",
+            trackDisplayName: "Synthetic Track",
+            trackSlug: "same-track",
+          },
+          {
+            artistDisplayName: "Synthetic Artist Two",
+            storySlug: "story-two",
+            trackDisplayName: "Synthetic Track Two",
+            trackSlug: "same-track",
+          },
+        ]),
     ];
     for (const operation of operations) {
-      let message = "";
-      try {
-        operation();
-      } catch (error) {
-        assert.ok(error instanceof PublicationPolicyError);
-        message = error.message;
-      }
-      assert.notEqual(message, "");
-      assert.equal(message.includes(privateKey), false);
+      assert.throws(operation, PublicationPolicyError);
     }
+  });
+
+  it("rejects empty manual display identity without consulting private candidates", () => {
+    assert.throws(
+      () =>
+        selectEditorialTrackDetails([
+          {
+            artistDisplayName: "",
+            storySlug: "story-one",
+            trackDisplayName: "Synthetic Track",
+            trackSlug: "synthetic-track",
+          },
+        ]),
+      /artist display name/u,
+    );
   });
 });

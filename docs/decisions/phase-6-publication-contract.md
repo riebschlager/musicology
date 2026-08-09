@@ -4,6 +4,11 @@
 **Decision date:** 2026-08-09
 **Status:** accepted for P6-03 and P6-04 implementation
 
+**Amendment:** P6-02 was revised on 2026-08-09 before P6-04 implementation. Selected-track public
+identity is now wholly manual editorial detail under `public-selection-policy-v2`; it does not
+resolve against or imply a private analytical track candidate. Artist eligibility, analytical
+evidence, and numerical claims remain bundle-backed.
+
 ## Decision and dependency evidence
 
 P6-01 is complete at the current branch tip. Its product specification maps every first-release
@@ -73,7 +78,7 @@ renaming; “omit” means it is private-only. Any field not listed here is priv
 | Artist era `evidence[*].components` and `peak.components` | Eligible artist detail | Publish the allowlisted count/share/rank/baseline/strength components; omit `isQualified`, which is implied by inclusion. |
 | Artist-era parameter fields | Public aggregate | Publish in methodology/analytical versions so interval semantics remain inspectable. |
 | Rediscovery `rediscoveries[*].entityId` | Private-only | Omit; it cannot be a public reference. |
-| Rediscovery `entityDisplayName` and `scope` | Manually selected editorial detail | Artist identity may resolve to an eligible public slug. Track identity requires the selected-track allowlist. Scope is represented by story kind/detail rather than passed through. |
+| Rediscovery `entityDisplayName` and `scope` | Manually selected editorial detail | Artist identity may resolve to an eligible public slug. Private track identity is never projected automatically; an independently reviewed manual selected-track entry is the only source of a public track name. Scope is represented by story kind/detail rather than passed through. |
 | Rediscovery `priorListenAt`, `returnStartedAt`, `relatedEra.windowStart/windowEndExclusive` | Manually selected editorial detail | Reduce to `YYYY-MM` period labels. No exact return or prior-listen instant is public. |
 | Rediscovery `classification/gapDays/priorPlayCount/returnIntensity/persistence/persistencePlayCount/returnWindowComplete/relatedEra` | Manually selected editorial detail | Publish only for an approved story with its parameter and coverage qualification. |
 | Rediscovery parameter fields | Public aggregate | Disclose only with the selected story evidence; no unreviewed candidate list is public. |
@@ -89,7 +94,7 @@ renaming; “omit” means it is private-only. Any field not listed here is priv
 | Authored `contentSchemaVersion`, `publicationStatus`, `title`, `summary`, structured `body`, `order`, `accessibilitySummary` | Manually selected editorial detail | Publish in the closed editorial/story content schemas. |
 | Authored public route/period anchors and public data references | Manually selected editorial detail | Admit only the declared same-origin routes, optional public-slug fragments, reduced periods, or reviewed credential-free HTTPS links without query data; no private locator or ID. |
 | Authored featured-artist reference | Eligible artist detail | Must resolve to an artist in the same approved snapshot. |
-| Authored selected-track reference/name/artist | Manually selected editorial detail | Must resolve through the exact track-selection allowlist; at most one track per story. |
+| Authored selected-track name/artist/story/slug | Manually selected editorial detail | The exact reviewed manual entry is authoritative and need not resolve to a private analytical candidate; at most one track is attached to a story. It cannot create track-level analytical evidence. |
 | Publication `snapshotId`, generation/policy/schema versions, timezone, as-of/publication dates, artifact filenames/hashes, snapshot/report hashes, supersession, approval decision | Public aggregate | Publish in the public manifest. Approval has a decision and date but no username/account identifier. |
 | Publication candidate diff counts, public slug lists, exact field allowlists, artifact hashes, added/removed/changed public slugs | Private review metadata | Retain in the ignored review report; it is safe but not a site data dependency. |
 
@@ -102,7 +107,7 @@ secrets; Spotify country; and Spotify platform/device context.
 
 ## Public selection and granularity policy
 
-The executable version is `public-selection-policy-v1`.
+The executable version is `public-selection-policy-v2`.
 
 ### Dates
 
@@ -163,11 +168,17 @@ sets.
 
 ### Selected tracks
 
-Track publication is manual-allowlist-only. A private candidate selection key must resolve to
-exactly one analytical candidate, exactly one story slug, and one unique public track slug. The
-public projection contains only the reviewed artist display name, track display name, story slug,
-and public track slug; it drops the selection key. A missing, duplicate, or stale selection fails
-generation. No track catalog, per-track series, play list, exact timestamp, event count sequence,
+Track identity is wholly manual, review-bound editorial detail. Each entry supplies exactly one
+reviewed artist display name, track display name, story slug, and unique public track slug. It does
+not contain a private selection key and does not resolve against the private analytical bundle.
+Duplicate track identities, duplicate public track slugs, multiple tracks for one story, missing
+story references, or an unreviewed track name fail generation.
+
+A manual selected track is illustrative identity only. It does not establish that a private
+track-scope rediscovery candidate exists and cannot supply gap, return, persistence, play-count,
+timestamp, or other track-level analytical evidence. Any analytical evidence in the same story
+must independently resolve to an allowlisted bundle-backed artist-level result and be labeled at
+that scope. No track catalog, per-track series, play list, exact timestamp, event count sequence,
 or fallback to private rediscovery output is permitted.
 
 ## Versioned public schemas
@@ -179,16 +190,21 @@ The executable closed schemas are:
   optional all-or-nothing `genre-lab.json`;
 - `public-review-report-v1` for the ignored human-review boundary;
 - `public-snapshot-generator-v1` for generation behavior; and
-- `public-selection-policy-v1` for date, selection, sparse-group, slug, and limit decisions.
+- `public-selection-policy-v2` for date, selection, sparse-group, slug, and limit decisions.
 
 Every artifact repeats its snapshot ID, schema/generation/selection versions, timezone, reduced
-as-of and publication dates, common coverage, and applicable analytical versions. Each analytical
+as-of date, candidate-time `publicationDate: null`, common coverage, and applicable analytical versions. Each analytical
 artifact or selected story also carries the closed, allowlisted parameter values needed to explain
 its visible result; private UTC bounds remain omitted. The manifest records the shared context plus
 fixed filenames, SHA-256 hashes of exact artifact bytes, a deterministic snapshot hash,
 review-report hash, superseded snapshot ID, publication policy, and approval state. A candidate has
 `publicationDate: null` and no approval. An approved manifest has a publication date and an approval
 record whose report hash exactly matches the reviewed report.
+
+P6-04 preserves the exact reviewed artifact bytes during approval, so their candidate-time
+`publicationDate: null` does not change. The approved manifest and `approval.json` are authoritative
+for the approval/publication date. This keeps approval metadata from silently changing artifact
+hashes after review.
 
 The review report lists the reduced as-of date, common coverage, analytical versions, every
 artifact filename and hash, exact executable field allowlist, record count, and proposed public
@@ -215,8 +231,8 @@ versions reconcile within each artifact before it is reviewable.
    record.
 3. **Review:** the owner compares the report and exact candidate bytes with the previous approved
    snapshot. Required review includes fields, entities/stories, ranges, versions, coverage,
-   selection-policy changes, additions, removals, external links, asset/license records, and the
-   visible privacy disclosure.
+   selection-policy changes, additions, removals, every manual selected-track identity, external
+   links, asset/license records, and the visible privacy disclosure.
 4. **Approve:** a separate explicit command records the approval decision/report hash and copies the
    already-reviewed bytes to `data/publication/approved/<snapshot-id>/`. It must fail if any byte or
    hash changed. Generation, import, sync, enrichment, analysis, and ordinary site builds cannot
@@ -290,8 +306,10 @@ email address in data artifacts or require a third-party embed.
   tail, precise timestamps, internal IDs, database fingerprints, and operational metadata not
   needed by the site.
 - Pure manual publication was rejected because field drift and stale analytical claims would not
-  be testable. Pure automatic publication was rejected because a passing schema cannot replace
-  human review of names, stories, external links, licenses, and changed public meaning.
+  be testable. The narrow selected-track identity exception is manual because the stable private
+  bundle intentionally has no track-scope candidate contract; it is prohibited from carrying
+  analytical claims. Pure automatic publication was rejected because a passing schema cannot
+  replace human review of names, stories, external links, licenses, and changed public meaning.
 - Hash-derived or ID-derived slugs were rejected because they leak lineage and are hard to withdraw
   or keep stable across identity changes. Explicit public slugs make collisions and renames
   reviewable.

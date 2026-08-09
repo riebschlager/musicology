@@ -1,4 +1,4 @@
-export const PUBLIC_SELECTION_POLICY_VERSION = "public-selection-policy-v1";
+export const PUBLIC_SELECTION_POLICY_VERSION = "public-selection-policy-v2";
 
 export const PUBLIC_SELECTION_POLICY = {
   artistEligibility: {
@@ -27,7 +27,7 @@ export const PUBLIC_SELECTION_POLICY = {
   },
   selectedTracks: {
     maximumPerStory: 1,
-    mode: "manual_allowlist_only",
+    mode: "manual_identity_allowlist_only",
   },
 } as const;
 
@@ -43,15 +43,10 @@ export interface PublicArtistSelectionCandidate {
   readonly slug: string;
 }
 
-export interface SelectedTrackCandidate {
-  readonly artistDisplayName: string;
-  readonly selectionKey: string;
-  readonly trackDisplayName: string;
-}
-
 export interface SelectedTrackAllowlistEntry {
-  readonly selectionKey: string;
+  readonly artistDisplayName: string;
   readonly storySlug: string;
+  readonly trackDisplayName: string;
   readonly trackSlug: string;
 }
 
@@ -144,44 +139,42 @@ export function selectEligiblePublicArtists(
 }
 
 /**
- * Track display values cross the public boundary only when a manually authored selection key is
- * present in the allowlist. The private selection key is deliberately omitted from the result.
+ * Track display values are wholly manual editorial identity. They do not resolve against or admit
+ * a private analytical candidate, and they cannot establish track-level analytical evidence.
  */
 export function selectEditorialTrackDetails(
-  candidates: readonly SelectedTrackCandidate[],
   allowlist: readonly SelectedTrackAllowlistEntry[],
 ): readonly PublicSelectedTrackDetail[] {
-  const candidatesByKey = uniqueBySelectionKey(candidates, "Track candidate");
-  const selectionKeys = new Set<string>();
+  const identities = new Set<string>();
   const storySlugs = new Set<string>();
   const trackSlugs = new Set<string>();
 
   return allowlist.map((entry) => {
-    validateRequiredText(entry.selectionKey, "Track selection key");
+    validateRequiredText(entry.artistDisplayName, "Selected track artist display name");
+    validateRequiredText(entry.trackDisplayName, "Selected track display name");
     assertPublicSlug(entry.storySlug, "Story slug");
     assertPublicSlug(entry.trackSlug, "Track slug");
-    if (selectionKeys.has(entry.selectionKey)) {
-      throw new PublicationPolicyError("Track selection keys must be unique");
-    }
     if (storySlugs.has(entry.storySlug)) {
       throw new PublicationPolicyError(`A story may select at most one track: ${entry.storySlug}`);
     }
     if (trackSlugs.has(entry.trackSlug)) {
       throw new PublicationPolicyError(`Track public slug must be unique: ${entry.trackSlug}`);
     }
-    selectionKeys.add(entry.selectionKey);
+    const identity = `${entry.artistDisplayName}\u0000${entry.trackDisplayName}`;
+    if (identities.has(identity)) {
+      throw new PublicationPolicyError(
+        "A manually selected track identity may appear only once per snapshot",
+      );
+    }
+    identities.add(identity);
     storySlugs.add(entry.storySlug);
     trackSlugs.add(entry.trackSlug);
 
-    const candidate = candidatesByKey.get(entry.selectionKey);
-    if (candidate === undefined) {
-      throw new PublicationPolicyError("Selected track key does not resolve to one candidate");
-    }
     return {
-      artistDisplayName: candidate.artistDisplayName,
+      artistDisplayName: entry.artistDisplayName,
       slug: entry.trackSlug,
       storySlug: entry.storySlug,
-      trackDisplayName: candidate.trackDisplayName,
+      trackDisplayName: entry.trackDisplayName,
     };
   });
 }
@@ -218,25 +211,6 @@ function bestQualifyingInterval(candidate: PublicArtistSelectionCandidate): {
     }
     return interval.strength > best.strength ? interval : best;
   }, first);
-}
-
-function uniqueBySelectionKey(
-  candidates: readonly SelectedTrackCandidate[],
-  label: string,
-): ReadonlyMap<string, SelectedTrackCandidate> {
-  const result = new Map<string, SelectedTrackCandidate>();
-  for (const candidate of candidates) {
-    validateRequiredText(candidate.selectionKey, `${label} selection key`);
-    validateRequiredText(candidate.artistDisplayName, `${label} artist display name`);
-    validateRequiredText(candidate.trackDisplayName, `${label} track display name`);
-    if (result.has(candidate.selectionKey)) {
-      throw new PublicationPolicyError(
-        `${label} selection key must resolve to exactly one candidate`,
-      );
-    }
-    result.set(candidate.selectionKey, candidate);
-  }
-  return result;
 }
 
 function validateCanonicalUtcTimestamp(value: unknown, label: string): string {

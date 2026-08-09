@@ -36,13 +36,15 @@ describe("P6-02 publication decision", () => {
 
   it("records every required granularity, selection, and sparse-group decision", () => {
     for (const decisionText of [
-      "public-selection-policy-v1",
+      "public-selection-policy-v2",
       "calendar months (`YYYY-MM`)",
       "calendar year (`YYYY`)",
       "at least **24** qualifying-window plays",
       "peak strength of at least **0.75**",
       "At most **200**",
-      "manual-allowlist-only",
+      "Track identity is wholly manual",
+      "does not resolve against the private analytical bundle",
+      "cannot supply gap, return, persistence, play-count",
       "at most 600 history months",
       "zero and small monthly canonical play counts",
       "No “other artists” count",

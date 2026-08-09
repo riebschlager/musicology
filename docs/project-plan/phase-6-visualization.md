@@ -74,6 +74,9 @@ and contains no requirement to query raw exports, SQLite, or a hosted service.
 - Define public date granularity, artist eligibility/significance rules, long-tail suppression,
   selected-track allowlisting, stable public slugs, result limits, and treatment of small or sparse
   groups.
+- Define selected-track artist/track display identity as wholly manual reviewed editorial detail,
+  independent of private analytical candidate availability and incapable of creating track-level
+  analytical evidence.
 - Exclude individual listening events, private analytical-bundle passthrough, internal/source IDs,
   source paths and filenames, fingerprints, raw provider payloads, credentials, and all previously
   excluded sensitive fields.
@@ -86,9 +89,10 @@ and contains no requirement to query raw exports, SQLite, or a hosted service.
   visitor analytics, third-party requests, and site privacy disclosure.
 
 **Acceptance:** contract and privacy tests can prove the public schema is allowlisted, rejects an
-unknown or forbidden field, applies the chosen granularity and selection rules, and cannot express
-an event-level listening log. A reviewer can determine exactly what a proposed snapshot would make
-public before approving it.
+unknown or forbidden field, applies the chosen granularity and selection rules, treats manual track
+identity as editorial rather than analytical evidence, and cannot express an event-level listening
+log. A reviewer can determine exactly what a proposed snapshot would make public before approving
+it.
 
 ### P6-03 — Confirm and document the static web/visualization stack
 
@@ -124,6 +128,9 @@ server runtime, or monorepo is required for the initial microsite.
   errors.
 - Project only the P6-02 allowlisted fields and aggregations into the versioned public artifacts,
   applying public date granularity, artist eligibility, result bounds, and editorial selections.
+- Treat selected-track artist/track display identity as wholly manual reviewed editorial detail.
+  Do not require a private analytical track candidate, and do not attach track-level analytical
+  evidence merely because a manual track identity is present.
 - Produce deterministic filenames, serialization, hashes, and a manifest; stage the complete
   snapshot before replacing a prior generated candidate.
 - Produce a deterministic publication report and human-reviewable diff summary covering exposed
@@ -134,9 +141,12 @@ server runtime, or monorepo is required for the initial microsite.
 - Add small deterministic public fixture snapshots for site development and tests.
 
 **Acceptance:** tests cover every public artifact plus empty history, incompatible/stale private
-input, forbidden and unknown fields, date reduction, threshold boundaries, track-story selection,
-deterministic reruns, failed staging, snapshot supersession, and rollback. The output contains no
-private-only field and does not require the local database after generation.
+input, forbidden and unknown fields, date reduction, threshold boundaries, wholly manual
+track-story identity (including duplicate, missing-story, and unreviewed-name failures),
+deterministic reruns, failed staging, snapshot supersession, and rollback. Tests also prove a manual
+track selection neither requires a private analytical candidate nor creates track-level analytical
+evidence. The output contains no private-only field and does not require the local database after
+generation.
 
 ### P6-05 — Build the narrative shell and disclosure system
 
