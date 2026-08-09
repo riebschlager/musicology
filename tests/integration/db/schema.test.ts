@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import type { SqliteConnection, SqliteRow } from "../../../src/db/connection.ts";
-import { applyMigrations } from "../../../src/db/migrations.ts";
+import { applyMigrations, loadMigrationFiles } from "../../../src/db/migrations.ts";
 import { withTemporarySqliteDatabase } from "../../../src/db/temporary.ts";
 
 const migrationsDirectory = fileURLToPath(new URL("../../../migrations/", import.meta.url));
@@ -51,6 +51,19 @@ function foreignKeys(connection: SqliteConnection, table: string): readonly stri
 }
 
 describe("initial schema contract", () => {
+  it("preserves the applied genre evidence migration and extends it with a later migration", () => {
+    const migrations = loadMigrationFiles(migrationsDirectory);
+
+    assert.equal(
+      migrations.find((migration) => migration.version === 12)?.checksumSha256,
+      "4955692b7c7b22509600927e374d0db6646a995bc8098f7a43edc6be8e2a3c7c",
+    );
+    assert.equal(
+      migrations.find((migration) => migration.version === 14)?.name,
+      "enforce_genre_enrichment_evidence_invariants",
+    );
+  });
+
   it("backfills occurrence provenance and preserves existing file relationships", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       for (const migration of [
@@ -166,8 +179,13 @@ describe("initial schema contract", () => {
         "artist_alias",
         "artist_genre_evidence",
         "cross_source_candidate_generation",
+        "genre_enrichment_raw_tag",
+        "genre_enrichment_snapshot",
         "genre_mapping",
         "genre_tag",
+        "genre_taxonomy_category",
+        "genre_taxonomy_mapping",
+        "genre_taxonomy_version",
         "identity_decision",
         "identity_resolution_conflict",
         "ingest_run",
@@ -361,6 +379,48 @@ describe("initial schema contract", () => {
         "artist_id",
         "release_id",
       ]);
+      assert.deepEqual(columns(connection, "genre_enrichment_snapshot"), [
+        "id",
+        "artist_id",
+        "provider",
+        "provider_entity_id",
+        "provider_response_schema_version",
+        "contract_version",
+        "provider_license",
+        "provider_attribution",
+        "fetched_at_epoch_ms",
+        "cache_state",
+        "outcome",
+        "error_code",
+        "supersedes_snapshot_id",
+      ]);
+      assert.deepEqual(columns(connection, "genre_enrichment_raw_tag"), [
+        "id",
+        "snapshot_id",
+        "raw_tag_name",
+        "normalized_raw_tag",
+        "raw_weight",
+        "confidence",
+        "is_recognized_genre",
+      ]);
+      assert.deepEqual(columns(connection, "genre_taxonomy_version"), [
+        "taxonomy_version",
+        "artifact_version",
+        "content_fingerprint_sha256",
+        "imported_at_epoch_ms",
+      ]);
+      assert.deepEqual(columns(connection, "genre_taxonomy_category"), [
+        "taxonomy_version",
+        "category_id",
+        "label",
+        "parent_category_id",
+      ]);
+      assert.deepEqual(columns(connection, "genre_taxonomy_mapping"), [
+        "taxonomy_version",
+        "source_tag",
+        "mapping_action",
+        "target_category_id",
+      ]);
     });
   });
 
@@ -385,6 +445,9 @@ describe("initial schema contract", () => {
         "listening_event_track_time_idx",
         "reconciliation_candidate_state_idx",
         "artist_genre_evidence_artist_idx",
+        "genre_enrichment_snapshot_artist_provider_idx",
+        "genre_enrichment_raw_tag_snapshot_idx",
+        "genre_taxonomy_mapping_target_idx",
         "manual_reconciliation_decision_candidate_idx",
         "manual_identity_resolution_override_source_idx",
       ]) {
@@ -415,6 +478,23 @@ describe("initial schema contract", () => {
       assert.deepEqual(foreignKeys(connection, "artist_genre_evidence"), [
         "artist_id->artist",
         "genre_tag_id->genre_tag",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_enrichment_snapshot"), [
+        "artist_id->artist",
+        "supersedes_snapshot_id->genre_enrichment_snapshot",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_enrichment_raw_tag"), [
+        "snapshot_id->genre_enrichment_snapshot",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_taxonomy_category"), [
+        "parent_category_id->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_version",
+      ]);
+      assert.deepEqual(foreignKeys(connection, "genre_taxonomy_mapping"), [
+        "target_category_id->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_category",
+        "taxonomy_version->genre_taxonomy_version",
       ]);
       assert.deepEqual(foreignKeys(connection, "manual_identity_decision"), [
         "decision_key->manual_decision_artifact",
@@ -601,6 +681,10 @@ describe("initial schema contract", () => {
           "add_manual_decision_artifacts",
           "add_manual_identity_override_snapshots",
           "add_lastfm_api_sync_metadata",
+          "add_genre_enrichment_evidence_contract",
+          "add_genre_taxonomy_mapping_workflow",
+          "enforce_genre_enrichment_evidence_invariants",
+          "preserve_distinct_genre_raw_tags",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

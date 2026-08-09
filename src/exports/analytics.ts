@@ -13,22 +13,32 @@ import path from "node:path";
 import { generateAbandonmentAnalysis } from "../analytics/abandonment.ts";
 import { queryCanonicalAnalyticalBase } from "../analytics/base.ts";
 import { generateArtistEraAnalysis } from "../analytics/artist-eras.ts";
+import { generateGenreEraAnalysis } from "../analytics/genre-eras.ts";
 import { generateRediscoveryAnalysis } from "../analytics/rediscovery.ts";
 import { generateVolumeAnalysis } from "../analytics/volume.ts";
 import type { JsonObject, JsonValue } from "../cli/result.ts";
-import type { SqliteConnection } from "../db/connection.ts";
+import type { SqliteConnection, SqliteRow } from "../db/connection.ts";
 import { getMigrationStatus } from "../db/migrations.ts";
+import { generateGenreContributions } from "../genre/contributions.ts";
 import { generateCoverageReport } from "../reporting/coverage.ts";
 
-export const ANALYTICAL_EXPORT_SCHEMA_VERSION = "analytical-export-v1";
-export const ANALYTICAL_EXPORT_ARTIFACT_SCHEMA_VERSION = "analytical-export-artifact-v1";
-export const ANALYTICAL_EXPORT_DIRECTORY_NAME = "analytics-v1";
+export const ANALYTICAL_EXPORT_SCHEMA_VERSION = "analytical-export-v2";
+export const ANALYTICAL_EXPORT_ARTIFACT_SCHEMA_VERSION = "analytical-export-artifact-v2";
+export const ANALYTICAL_EXPORT_DIRECTORY_NAME = "analytics-v2";
 
-const ARTIFACT_NAMES = ["volume", "artist-eras", "rediscovery", "abandonment", "coverage"] as const;
+const ARTIFACT_NAMES = [
+  "volume",
+  "artist-eras",
+  "genre-eras",
+  "rediscovery",
+  "abandonment",
+  "coverage",
+] as const;
 export type AnalyticalExportArtifactName = (typeof ARTIFACT_NAMES)[number];
 
 export interface AnalyticalExportDatabaseState extends JsonObject {
   readonly canonicalSnapshotSha256: string;
+  readonly genreEvidenceSnapshotSha256: string;
   readonly migrations: readonly {
     readonly checksumSha256: string;
     readonly name: string;
@@ -97,14 +107,16 @@ export class AnalyticalExportError extends Error {
 }
 
 /**
- * Produces the five stable web-layer artifacts from canonical analysis and coverage contracts.
+ * Produces the six stable web-layer artifacts from canonical analysis and coverage contracts.
  * Source tables are never read into an artifact; coverage is the existing aggregate-only report.
  */
 export function generateAnalyticalExports(
   options: GenerateAnalyticalExportsOptions,
 ): GeneratedAnalyticalExports {
   const coverage = deterministicCoverage(options.connection, options.presentationTimezone);
-  const state = databaseState(options, coverage);
+  const genreFreshnessAsOfEpochMs = deterministicGenreFreshnessAsOf(options.connection);
+  const genreEvidence = deterministicGenreEvidence(options, genreFreshnessAsOfEpochMs);
+  const state = databaseState(options, coverage, genreEvidence);
   const data: Readonly<Record<AnalyticalExportArtifactName, JsonObject>> = {
     volume: generateVolumeAnalysis({
       connection: options.connection,
@@ -112,6 +124,12 @@ export function generateAnalyticalExports(
     }) as unknown as JsonObject,
     "artist-eras": generateArtistEraAnalysis({
       connection: options.connection,
+      presentationTimezone: options.presentationTimezone,
+    }) as unknown as JsonObject,
+    "genre-eras": generateGenreEraAnalysis({
+      connection: options.connection,
+      mode: "raw",
+      now: () => genreFreshnessAsOfEpochMs,
       presentationTimezone: options.presentationTimezone,
     }) as unknown as JsonObject,
     rediscovery: generateRediscoveryAnalysis({
@@ -202,6 +220,7 @@ export function verifyAnalyticalExports(
   const current = databaseState(
     options,
     deterministicCoverage(options.connection, options.presentationTimezone),
+    deterministicGenreEvidence(options, deterministicGenreFreshnessAsOf(options.connection)),
   );
   if (serializeJson(manifest.databaseState) !== serializeJson(current)) {
     throw new AnalyticalExportError(
@@ -234,9 +253,38 @@ function deterministicCoverage(connection: SqliteConnection, timezone: string): 
   return coverage as unknown as JsonObject;
 }
 
+/** Returns the raw-mode evidence consumed by the exported genre-era analysis without exposing it. */
+function deterministicGenreEvidence(
+  options: GenerateAnalyticalExportsOptions,
+  freshnessAsOfEpochMs: number,
+): JsonObject {
+  return generateGenreContributions({
+    connection: options.connection,
+    mode: "raw",
+    now: () => freshnessAsOfEpochMs,
+    presentationTimezone: options.presentationTimezone,
+  }) as unknown as JsonObject;
+}
+
+interface EpochRow extends SqliteRow {
+  readonly value: number;
+}
+
+/** Uses retained evidence state rather than wall-clock time so equal databases export equal bytes. */
+function deterministicGenreFreshnessAsOf(connection: SqliteConnection): number {
+  return (
+    connection
+      .prepare<EpochRow>(
+        "SELECT COALESCE(MAX(fetched_at_epoch_ms), 0) AS value FROM genre_enrichment_snapshot",
+      )
+      .get()?.value ?? 0
+  );
+}
+
 function databaseState(
   options: GenerateAnalyticalExportsOptions,
   coverage: JsonObject,
+  genreEvidence: JsonObject,
 ): AnalyticalExportDatabaseState {
   const migrations = getMigrationStatus(
     options.connection,
@@ -263,6 +311,7 @@ function databaseState(
   }));
   return {
     canonicalSnapshotSha256: sha256(serializeJson({ canonicalSnapshot, coverage, migrations })),
+    genreEvidenceSnapshotSha256: sha256(serializeJson(genreEvidence)),
     migrations,
   };
 }
@@ -418,6 +467,7 @@ function isDatabaseState(value: unknown): value is AnalyticalExportDatabaseState
   return (
     isPlainObject(value) &&
     isSha256(value.canonicalSnapshotSha256) &&
+    isSha256(value.genreEvidenceSnapshotSha256) &&
     Array.isArray(value.migrations) &&
     value.migrations.every(
       (migration) =>

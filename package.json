@@ -9,6 +9,10 @@
     "pnpm": ">=9 <10"
   },
   "packageManager": "pnpm@9.0.0",
+  "volta": {
+    "node": "24.15.0",
+    "pnpm": "9.0.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "analyze:volume": "node --env-file-if-exists=.env src/cli/analyze-volume.ts",
@@ -18,6 +22,8 @@
     "benchmark:analytics": "node --env-file-if-exists=.env src/cli/benchmark-analytics.ts",
     "db:migrate": "node --env-file-if-exists=.env src/cli/db.ts migrate",
     "db:status": "node --env-file-if-exists=.env src/cli/db.ts status",
+    "enrich:genres": "node --env-file-if-exists=.env src/cli/enrich-genres.ts",
+    "genre:taxonomy": "node --env-file-if-exists=.env src/cli/genre-taxonomy.ts",
     "export:analytics": "node --env-file-if-exists=.env src/cli/export-analytics.ts",
     "export:reconciliation-calibration": "node --env-file-if-exists=.env src/cli/export-reconciliation-calibration.ts",
     "format": "biome format --write .",
@@ -30,7 +36,7 @@
     "reconcile": "node --env-file-if-exists=.env src/cli/reconcile.ts",
     "review:decisions": "node --env-file-if-exists=.env src/cli/review-decisions.ts",
     "sync:lastfm": "node --env-file-if-exists=.env src/cli/sync-lastfm.ts",
-    "test": "node --test",
+    "test": "node --test \"tests/**/*.test.ts\"",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "validate": "node --env-file-if-exists=.env src/cli/validate.ts"
   },

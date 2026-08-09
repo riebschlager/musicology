@@ -25,6 +25,25 @@ per Last.fm API sync run: page count, completed-track count, and ignored now-pla
 foreign key and triggers permit only `lastfm_api_sync` runs to own that metadata (including a
 running run inside the persistence transaction); changing that run to another command type is also
 rejected. The table deliberately stores no account identifier, URL, API key, or response body.
+`migrations/0012_add_genre_enrichment_evidence_contract.sql` adds immutable, optional provider
+snapshot and raw-tag tables for `genre-evidence-v1`. A refresh supersedes its predecessor rather
+than overwriting it, and the append-only tables reject updates and deletes (including cascading
+deletes through an artist). Raw provider tags remain separate from the pre-existing curated-mapping
+placeholder and any later analytical assignment. Each snapshot also requires the owning artist's
+exact strong MusicBrainz identifier. The focused
+[`genre enrichment evidence contract`](genre-enrichment-evidence-contract.md) defines the allowed
+provider, safe cache/error states, provider schema version, and privacy boundary.
+`migrations/0013_add_genre_taxonomy_mapping_workflow.sql` adds versioned curated taxonomy
+categories and mappings. A taxonomy import can only add a version, never modify immutable provider
+snapshots or raw tags. Categories support a validated parent/child hierarchy; mappings preserve the
+explicit keep, combine, rename, or ignore decision for each known raw tag.
+`migrations/0014_enforce_genre_enrichment_evidence_invariants.sql` adds the exact-strong-identifier,
+failure-lineage, and append-only deletion triggers that extend the already-applied P5-02 evidence
+contract. Keeping those additions in a new migration preserves the recorded checksum of migration
+0012 while giving both upgraded and freshly built databases the same enforced schema.
+`migrations/0015_preserve_distinct_genre_raw_tags.sql` changes the raw-tag uniqueness key from
+matching normalization to exact provider text. This preserves distinct provider spellings that
+normalize to the same analytical mapping key while retaining every append-only evidence trigger.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately

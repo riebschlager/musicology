@@ -35,12 +35,12 @@ describe("export:analytics CLI", () => {
       const body = JSON.parse(exported.stdout) as {
         readonly data: { readonly schemaVersion: string };
       };
-      assert.equal(body.data.schemaVersion, "analytical-export-v1");
+      assert.equal(body.data.schemaVersion, "analytical-export-v2");
       assert.equal(
         existsSync(
           path.join(
             workspace.configuration.paths.outputsDirectory,
-            "analytics-v1",
+            "analytics-v2",
             "manifest.json",
           ),
         ),

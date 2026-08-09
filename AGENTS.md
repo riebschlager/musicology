@@ -26,6 +26,20 @@
 - Confirm that plan assumptions still match the implementation and that the preceding task or phase
   gate is satisfied.
 
+## Runtime preflight
+
+- Before running Node-based commands, verify that the active runtime satisfies the repository's
+  pinned Node.js 24 and pnpm 9 versions by checking `node --version`, `pnpm --version`, and the
+  version-management configuration in `package.json`.
+- When the active runtime does not match, do not run package scripts or native-module commands with
+  it. Switch to the pinned runtime first; reinstall or rebuild dependencies only if that remains
+  necessary.
+- Treat native dependencies, including `better-sqlite3`, as runtime/ABI-sensitive. If one fails to
+  load because it was built for another Node ABI, report the mismatch and use the project-pinned
+  runtime rather than changing application code.
+- Prefer the repository's Volta-managed runtime for verification commands when the shell runtime is
+  uncertain.
+
 ## Technical direction
 
 - Keep the system local-first: ingestion, reconciliation, analysis, and initial visualization must

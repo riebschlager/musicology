@@ -148,6 +148,19 @@ Before handing off a database-related change, run `pnpm quality`, migrate a fres
 run `db:status`, and run `validate` against that same database. This mirrors the database checks used
 for evidence-layer work while keeping private inputs outside CI.
 
+## Manage a genre taxonomy
+
+P5-05 curated genre mappings are imported from and exported to explicit portable JSON artifacts:
+
+```sh
+pnpm genre:taxonomy --import path/to/genre-taxonomy.json
+pnpm genre:taxonomy --export taxonomy-v1 --output path/to/genre-taxonomy.json
+```
+
+The artifact format and its versioning, validation, and licensing boundary are documented in
+[`genre-taxonomy-mapping.md`](genre-taxonomy-mapping.md). Use a new taxonomy version whenever the
+hierarchy or mapping decisions change; raw provider evidence is never rewritten.
+
 ## Rebuild the generated database
 
 The SQLite database is derived state. Confirm no Musicology process has it open, then remove only the
