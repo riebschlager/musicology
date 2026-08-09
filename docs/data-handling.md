@@ -4,6 +4,14 @@ Files under `data/inputs` are private source evidence. Keep them local, treat th
 
 Generated databases belong under `data/database`, and generated reports or exchange files belong under `data/outputs`. Both locations are ignored except for the placeholders that preserve their directories. The database and outputs are derived state and must be reproducible without committing them.
 
+Phase 6 adds one deliberately narrower exception: only public snapshot bytes that have passed the
+versioned allowlist, deterministic disclosure report, and explicit approval workflow may be copied
+to and committed under `data/publication/approved/<snapshot-id>/`, together with the approval record
+and active-snapshot pointer. Private analytical bundles and generated candidates/reports remain
+under ignored `data/outputs`; placing a file under `data/publication` does not itself approve it.
+The complete boundary and withdrawal/rollback workflow are defined in
+[`decisions/phase-6-publication-contract.md`](decisions/phase-6-publication-contract.md).
+
 Version 1 excludes the following data from SQLite, logs, errors, rejection diagnostics, fixtures, reports, and generated artifacts:
 
 - IP addresses;
