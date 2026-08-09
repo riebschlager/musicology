@@ -28,6 +28,9 @@ locations.
 `genre-eras.json` uses raw-tag mode because the bundle has no implicit taxonomy selection. Its
 envelope explicitly declares mode, provider, artist-level weighting, fetch-age split, and usable
 event coverage; low coverage qualifies the result rather than being presented as complete history.
+For deterministic regeneration, freshness is evaluated as of the greatest retained enrichment
+fetch instant (or epoch zero only when no snapshot exists), and that instant is disclosed in
+`fetchAge.evaluatedAtEpochMs`. Operational refresh decisions still use the current command time.
 
 Files are deterministically serialized with sorted keys. A complete bundle is written to a sibling
 staging directory before the published directory is replaced, so a failed write retains the prior

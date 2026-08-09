@@ -176,11 +176,13 @@ peak. The explicit parameters use fractional `minimumWindowContribution` and
 `minimumRollingContribution` thresholds.
 
 The envelope always includes raw/curated mode, nullable taxonomy version, MusicBrainz provider,
-artist-level weighting, provider freshness split, and usable/missing/total artist and event
+artist-level weighting, the `genre-contribution-v2` input contract, provider freshness split, and usable/missing/total artist and event
 coverage. Events without usable evidence remain missing rather than becoming an `unknown` genre;
 a low usable-event rate visibly qualifies the result. The versioned export bundle contains the
 deterministic raw-mode `genre-eras.json` artifact; consumers requiring a curated taxonomy call the
-analysis with its explicit immutable taxonomy version.
+analysis with its explicit immutable taxonomy version. The P5-08 archive assessment marks the
+current raw result experimental because coverage is low and uneven; see
+[`phase-5-genre-enrichment-validation.md`](phase-5-genre-enrichment-validation.md).
 
 ## Rediscovery analysis
 

@@ -103,6 +103,31 @@ describe("genre enrichment evidence schema", () => {
     });
   });
 
+  it("preserves distinct raw spellings with one normalization and rejects exact duplicates", () => {
+    withTemporarySqliteDatabase(({ connection }) => {
+      applyMigrations(connection, migrationsDirectory);
+      const artistId = insertArtist(connection);
+      insertStrongMusicBrainzArtistIdentifier(connection, artistId);
+      const snapshotId = insertSnapshot(connection, artistId);
+      const insert = connection.prepare(
+        `INSERT INTO genre_enrichment_raw_tag (
+          snapshot_id, raw_tag_name, normalized_raw_tag, raw_weight, confidence, is_recognized_genre
+        ) VALUES (?, ?, 'synth pop', 1, NULL, 0)`,
+      );
+
+      insert.run([snapshotId, "synth-pop"]);
+      insert.run([snapshotId, "synth pop"]);
+      assert.throws(() => insert.run([snapshotId, "synth-pop"]));
+      assert.equal(
+        connection
+          .prepare("SELECT COUNT(*) AS count FROM genre_enrichment_raw_tag WHERE snapshot_id = ?")
+          .get([snapshotId])?.count,
+        2,
+      );
+      assert.equal(connection.checkIntegrity().ok, true);
+    });
+  });
+
   it("retains snapshots and raw tags when direct or cascading deletion is attempted", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       applyMigrations(connection, migrationsDirectory);

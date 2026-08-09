@@ -76,9 +76,9 @@ describe("genre enrichment evidence contract", () => {
     );
   });
 
-  it("rejects empty success results, duplicate raw tags, and non-success raw evidence", () => {
+  it("preserves normalization collisions but rejects exact duplicate raw names", () => {
     assert.throws(() => validateGenreEnrichmentSnapshot(snapshot({ rawTags: [] })));
-    assert.throws(() =>
+    assert.doesNotThrow(() =>
       validateGenreEnrichmentSnapshot(
         snapshot({
           rawTags: [
@@ -86,6 +86,22 @@ describe("genre enrichment evidence contract", () => {
             {
               rawTagName: "dream-pop",
               normalizedRawTag: "dream pop",
+              rawWeight: 1,
+              confidence: null,
+              isRecognizedGenre: false,
+            },
+          ],
+        }),
+      ),
+    );
+    assert.throws(() =>
+      validateGenreEnrichmentSnapshot(
+        snapshot({
+          rawTags: [
+            ...snapshot().rawTags,
+            {
+              rawTagName: "Dream Pop",
+              normalizedRawTag: "another normalization",
               rawWeight: 1,
               confidence: null,
               isRecognizedGenre: false,

@@ -117,7 +117,7 @@ describe("MusicBrainz genre enrichment client", () => {
     const stub = transportReturning(
       response(200, {
         id: target.musicbrainzArtistId,
-        tags: [{ name: "Rock", count: 9 }],
+        tags: [{ name: "rock", count: 9 }],
         genres: [{ name: "rock", count: 10 }],
       }),
     );
@@ -131,6 +131,39 @@ describe("MusicBrainz genre enrichment client", () => {
         rawWeight: 10,
         confidence: null,
         isRecognizedGenre: true,
+      },
+    ]);
+    assert.equal(result?.snapshot?.outcome, "success");
+  });
+
+  it("preserves distinct provider raw tags that share a matching normalization", async () => {
+    const stub = transportReturning(
+      response(200, {
+        id: target.musicbrainzArtistId,
+        tags: [
+          { name: "synth-pop", count: 9 },
+          { name: "synthpop", count: 4 },
+        ],
+        genres: [],
+      }),
+    );
+
+    const [result] = await collect(client(stub.transport), new MemoryCache());
+
+    assert.deepEqual(result?.snapshot?.rawTags, [
+      {
+        rawTagName: "synth-pop",
+        normalizedRawTag: "synthpop",
+        rawWeight: 9,
+        confidence: null,
+        isRecognizedGenre: false,
+      },
+      {
+        rawTagName: "synthpop",
+        normalizedRawTag: "synthpop",
+        rawWeight: 4,
+        confidence: null,
+        isRecognizedGenre: false,
       },
     ]);
     assert.equal(result?.snapshot?.outcome, "success");

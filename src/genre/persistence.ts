@@ -78,21 +78,32 @@ function hasSameSnapshotEvidence(
     left.errorCode === right.errorCode &&
     left.supersedesSnapshotId === right.supersedesSnapshotId &&
     left.rawTags.length === right.rawTags.length &&
-    [...left.rawTags]
-      .sort((first, second) => first.normalizedRawTag.localeCompare(second.normalizedRawTag))
-      .every((tag, index) => {
-        const other = [...right.rawTags].sort((first, second) =>
-          first.normalizedRawTag.localeCompare(second.normalizedRawTag),
-        )[index];
-        return (
-          other !== undefined &&
-          tag.rawTagName === other.rawTagName &&
-          tag.normalizedRawTag === other.normalizedRawTag &&
-          tag.rawWeight === other.rawWeight &&
-          tag.confidence === other.confidence &&
-          tag.isRecognizedGenre === other.isRecognizedGenre
-        );
-      })
+    sortedRawTags(left.rawTags).every((tag, index) => {
+      const other = sortedRawTags(right.rawTags)[index];
+      return (
+        other !== undefined &&
+        tag.rawTagName === other.rawTagName &&
+        tag.normalizedRawTag === other.normalizedRawTag &&
+        tag.rawWeight === other.rawWeight &&
+        tag.confidence === other.confidence &&
+        tag.isRecognizedGenre === other.isRecognizedGenre
+      );
+    })
+  );
+}
+
+function compareUnicodeCodeUnits(left: string, right: string): number {
+  return left === right ? 0 : left < right ? -1 : 1;
+}
+
+function sortedRawTags(
+  tags: readonly GenreEnrichmentSnapshot["rawTags"][number][],
+): readonly GenreEnrichmentSnapshot["rawTags"][number][] {
+  return [...tags].sort(
+    (left, right) =>
+      compareUnicodeCodeUnits(left.normalizedRawTag, right.normalizedRawTag) ||
+      compareUnicodeCodeUnits(left.rawTagName, right.rawTagName) ||
+      Number(left.isRecognizedGenre) - Number(right.isRecognizedGenre),
   );
 }
 
@@ -174,9 +185,7 @@ export class SqliteGenreEnrichmentSnapshotCache implements GenreEnrichmentSnapsh
           snapshot_id, raw_tag_name, normalized_raw_tag, raw_weight, confidence, is_recognized_genre
         ) VALUES (?, ?, ?, ?, ?, ?)`,
       );
-      for (const tag of [...snapshot.rawTags].sort((left, right) =>
-        left.normalizedRawTag.localeCompare(right.normalizedRawTag),
-      )) {
+      for (const tag of sortedRawTags(snapshot.rawTags)) {
         insertTag.run([
           snapshotId,
           tag.rawTagName,

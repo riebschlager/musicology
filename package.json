@@ -10,7 +10,7 @@
   },
   "packageManager": "pnpm@9.0.0",
   "volta": {
-    "node": "24.0.0",
+    "node": "24.15.0",
     "pnpm": "9.0.0"
   },
   "scripts": {
@@ -36,7 +36,7 @@
     "reconcile": "node --env-file-if-exists=.env src/cli/reconcile.ts",
     "review:decisions": "node --env-file-if-exists=.env src/cli/review-decisions.ts",
     "sync:lastfm": "node --env-file-if-exists=.env src/cli/sync-lastfm.ts",
-    "test": "node --test",
+    "test": "node --test \"tests/**/*.test.ts\"",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "validate": "node --env-file-if-exists=.env src/cli/validate.ts"
   },

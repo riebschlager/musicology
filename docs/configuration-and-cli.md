@@ -48,7 +48,9 @@ The command has no credential configuration. It is bounded/resumable through imm
 snapshots, preserves refresh lineage, and reports only aggregate action and artist/event coverage
 states (`enriched`, `missing`, `ambiguous`, `stale`, and `failed`). It does not print provider tags,
 artist names or IDs, raw responses, or source evidence. The provider and cache boundary is documented
-in [`genre-enrichment-client.md`](genre-enrichment-client.md).
+in [`genre-enrichment-client.md`](genre-enrichment-client.md). The current archive fitness decision
+is experimental and is documented in
+[`phase-5-genre-enrichment-validation.md`](phase-5-genre-enrichment-validation.md).
 
 ## Command results and exit codes
 
@@ -285,7 +287,9 @@ source fields, secrets, or account usernames. Generated outputs remain ignored b
 
 `genre-eras.json` is the bundle's raw-tag genre result: it names its provider, artist-level
 weighting, freshness split, and usable event coverage. Curated genre results require an explicit
-taxonomy version and are generated outside this fixed bundle.
+taxonomy version and are generated outside this fixed bundle. Its deterministic freshness reference
+is the greatest retained enrichment fetch instant and is disclosed in the artifact; the live
+enrichment command continues to evaluate refresh eligibility at command time.
 
 ## Analytics validation and performance check
 

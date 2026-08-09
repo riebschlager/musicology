@@ -17,7 +17,7 @@ import { generateGenreEraAnalysis } from "../analytics/genre-eras.ts";
 import { generateRediscoveryAnalysis } from "../analytics/rediscovery.ts";
 import { generateVolumeAnalysis } from "../analytics/volume.ts";
 import type { JsonObject, JsonValue } from "../cli/result.ts";
-import type { SqliteConnection } from "../db/connection.ts";
+import type { SqliteConnection, SqliteRow } from "../db/connection.ts";
 import { getMigrationStatus } from "../db/migrations.ts";
 import { generateGenreContributions } from "../genre/contributions.ts";
 import { generateCoverageReport } from "../reporting/coverage.ts";
@@ -114,7 +114,8 @@ export function generateAnalyticalExports(
   options: GenerateAnalyticalExportsOptions,
 ): GeneratedAnalyticalExports {
   const coverage = deterministicCoverage(options.connection, options.presentationTimezone);
-  const genreEvidence = deterministicGenreEvidence(options);
+  const genreFreshnessAsOfEpochMs = deterministicGenreFreshnessAsOf(options.connection);
+  const genreEvidence = deterministicGenreEvidence(options, genreFreshnessAsOfEpochMs);
   const state = databaseState(options, coverage, genreEvidence);
   const data: Readonly<Record<AnalyticalExportArtifactName, JsonObject>> = {
     volume: generateVolumeAnalysis({
@@ -128,7 +129,7 @@ export function generateAnalyticalExports(
     "genre-eras": generateGenreEraAnalysis({
       connection: options.connection,
       mode: "raw",
-      now: () => 0,
+      now: () => genreFreshnessAsOfEpochMs,
       presentationTimezone: options.presentationTimezone,
     }) as unknown as JsonObject,
     rediscovery: generateRediscoveryAnalysis({
@@ -219,7 +220,7 @@ export function verifyAnalyticalExports(
   const current = databaseState(
     options,
     deterministicCoverage(options.connection, options.presentationTimezone),
-    deterministicGenreEvidence(options),
+    deterministicGenreEvidence(options, deterministicGenreFreshnessAsOf(options.connection)),
   );
   if (serializeJson(manifest.databaseState) !== serializeJson(current)) {
     throw new AnalyticalExportError(
@@ -253,13 +254,31 @@ function deterministicCoverage(connection: SqliteConnection, timezone: string): 
 }
 
 /** Returns the raw-mode evidence consumed by the exported genre-era analysis without exposing it. */
-function deterministicGenreEvidence(options: GenerateAnalyticalExportsOptions): JsonObject {
+function deterministicGenreEvidence(
+  options: GenerateAnalyticalExportsOptions,
+  freshnessAsOfEpochMs: number,
+): JsonObject {
   return generateGenreContributions({
     connection: options.connection,
     mode: "raw",
-    now: () => 0,
+    now: () => freshnessAsOfEpochMs,
     presentationTimezone: options.presentationTimezone,
   }) as unknown as JsonObject;
+}
+
+interface EpochRow extends SqliteRow {
+  readonly value: number;
+}
+
+/** Uses retained evidence state rather than wall-clock time so equal databases export equal bytes. */
+function deterministicGenreFreshnessAsOf(connection: SqliteConnection): number {
+  return (
+    connection
+      .prepare<EpochRow>(
+        "SELECT COALESCE(MAX(fetched_at_epoch_ms), 0) AS value FROM genre_enrichment_snapshot",
+      )
+      .get()?.value ?? 0
+  );
 }
 
 function databaseState(

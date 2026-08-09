@@ -1,6 +1,7 @@
 import type { JsonObject } from "../cli/result.ts";
 import type { SqliteConnection } from "../db/connection.ts";
 import {
+  type GENRE_CONTRIBUTION_VERSION,
   generateGenreContributions,
   type GenreContributionMode,
   type GenreContributionResult,
@@ -15,9 +16,9 @@ import {
   type AnalyticalResult,
 } from "./result.ts";
 
-export const GENRE_ERA_ANALYSIS_VERSION = "genre-era-v1";
+export const GENRE_ERA_ANALYSIS_VERSION = "genre-era-v2";
 export const GENRE_ERA_PARAMETER_SCHEMA_VERSION = "genre-era-parameters-v1";
-export const GENRE_ERA_QUERY_VERSION = "canonical-genre-era-v1";
+export const GENRE_ERA_QUERY_VERSION = "canonical-genre-era-v2";
 
 export const DEFAULT_GENRE_ERA_PARAMETERS = {
   maximumRank: 20,
@@ -70,6 +71,7 @@ export interface GenreEraInterval extends JsonObject {
 }
 
 export interface GenreEraResult extends JsonObject {
+  readonly contributionVersion: typeof GENRE_CONTRIBUTION_VERSION;
   readonly coverage: JsonObject;
   readonly fetchAge: JsonObject;
   readonly intervals: readonly GenreEraInterval[];
@@ -194,6 +196,7 @@ export function generateGenreEraAnalysis(
       parameters,
       presentationTimezone: options.presentationTimezone,
       result: {
+        contributionVersion: contributions.version,
         coverage: contributions.coverage as unknown as JsonObject,
         fetchAge: contributions.freshness as unknown as JsonObject,
         intervals: assembleIntervals(windows, parameters.windowSizeMonths),

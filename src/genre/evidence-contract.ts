@@ -93,7 +93,7 @@ export function validateGenreEnrichmentSnapshot(snapshot: GenreEnrichmentSnapsho
     throw new Error("An empty genre enrichment result must use the negative no_tags outcome");
   }
 
-  const normalizedTags = new Set<string>();
+  const rawTagNames = new Set<string>();
   for (const tag of snapshot.rawTags) {
     if (tag.rawTagName.length === 0 || tag.normalizedRawTag.length === 0) {
       throw new Error("Genre enrichment raw tags must retain raw and normalized text");
@@ -107,9 +107,9 @@ export function validateGenreEnrichmentSnapshot(snapshot: GenreEnrichmentSnapsho
     ) {
       throw new Error("Genre enrichment raw tag confidence must be between zero and one");
     }
-    if (normalizedTags.has(tag.normalizedRawTag)) {
-      throw new Error("Genre enrichment snapshot has duplicate normalized raw tags");
+    if (rawTagNames.has(tag.rawTagName)) {
+      throw new Error("Genre enrichment snapshot has duplicate raw-tag evidence");
     }
-    normalizedTags.add(tag.normalizedRawTag);
+    rawTagNames.add(tag.rawTagName);
   }
 }

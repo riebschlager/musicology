@@ -1,9 +1,10 @@
 # Genre enrichment evidence contract
 
-P5-02 defines `genre-evidence-v1`, the optional evidence boundary used by the P5-03 MusicBrainz
-adapter and later persistence work. It does not add an enrichment command, call a provider, map a
-tag to a taxonomy, or assign a genre to an event. Core ingestion and all non-genre analyses remain
-usable when the two contract tables contain no rows.
+P5-02 defines `genre-evidence-v1`, the optional evidence boundary used by the MusicBrainz adapter.
+The archive audit corrected its implementation to preserve every distinct raw provider spelling,
+including spellings that share one matching normalization, as the provider decision originally
+required. The contract does not map a tag to a taxonomy or assign a genre to an event. Core
+ingestion and all non-genre analyses remain usable when the two contract tables contain no rows.
 
 ## Snapshot contract
 
@@ -43,9 +44,15 @@ its historical enrichment evidence rather than removing it.
 matching normalization, the provider-relative raw vote weight, nullable provider confidence, and
 whether MusicBrainz identifies the tag as a recognized genre. A raw weight is neither a probability
 nor a listening-event contribution. `NULL` confidence means the provider did not supply one; it is
-not zero confidence. The adapter collapses an overlap between the provider's `tags` and `genres`
-collections to the recognized-genre row before this boundary. Duplicate normalized values remaining
-within either collection are rejected per snapshot.
+not zero confidence. The adapter collapses an exact raw-name overlap between the provider's `tags`
+and `genres` collections to the recognized-genre row before this boundary. An exact duplicate raw
+name remaining within either collection is rejected per snapshot.
+
+Distinct provider raw spellings remain separate even when they share one matching-normalized value;
+the database rejects only an exact duplicate raw tag name within a snapshot. An exact tag repeated
+in MusicBrainz's `tags` and `genres` collections becomes one recognized-genre row. Later raw-mode
+analysis combines weights by matching normalization deterministically without erasing either stored
+raw spelling.
 
 The snapshot/tag tables contain no taxonomy ID, curated category, mapping version, or event ID.
 The earlier placeholder `genre_tag`, `artist_genre_evidence`, and `genre_mapping` tables remain
@@ -59,5 +66,5 @@ provider evidence, curation, and analysis independently versioned.
 before persistence. The P5-03 adapter must parse provider JSON outside this contract, discard every
 field except the approved snapshot and raw-tag fields, and pass a supported schema version. It must
 reject inconsistent state/outcome/error combinations, invalid timestamps or numeric values,
-duplicate normalized raw tags, and raw tags attached to non-success results. It must not log or
+duplicate raw tag names, and raw tags attached to non-success results. It must not log or
 persist unfiltered provider JSON.

@@ -75,7 +75,7 @@ function addGenreEvidence(connection: SqliteConnection): void {
   const snapshotId = Number(
     connection
       .prepare(
-        "INSERT INTO genre_enrichment_snapshot (artist_id, provider, provider_entity_id, provider_response_schema_version, contract_version, provider_license, provider_attribution, fetched_at_epoch_ms, cache_state, outcome) VALUES (1, 'musicbrainz', 'c0ffee00-cafe-4000-8000-000000000001', 'musicbrainz-artist-v1', 'genre-evidence-v1', 'CC0 / CC BY-NC-SA', 'MusicBrainz', 0, 'success', 'success')",
+        "INSERT INTO genre_enrichment_snapshot (artist_id, provider, provider_entity_id, provider_response_schema_version, contract_version, provider_license, provider_attribution, fetched_at_epoch_ms, cache_state, outcome) VALUES (1, 'musicbrainz', 'c0ffee00-cafe-4000-8000-000000000001', 'musicbrainz-artist-v1', 'genre-evidence-v1', 'CC0 / CC BY-NC-SA', 'MusicBrainz', 1000, 'success', 'success')",
       )
       .run().lastInsertRowid,
   );
@@ -126,6 +126,26 @@ describe("versioned analytical exports", () => {
       assert.deepEqual(
         verifyAnalyticalExports(workspace.configuration.paths.outputsDirectory, options),
         first.manifest,
+      );
+    });
+  });
+
+  it("uses the latest retained genre fetch as its deterministic freshness reference", () => {
+    withTemporaryTestWorkspace((workspace) => {
+      addGenreEvidence(workspace.connection);
+      const generated = generateAnalyticalExports({
+        connection: workspace.connection,
+        migrationsDirectory,
+        presentationTimezone: "America/Chicago",
+      });
+
+      assert.equal(
+        (
+          generated.artifacts["genre-eras"].data.result as {
+            readonly fetchAge: { readonly evaluatedAtEpochMs: number };
+          }
+        ).fetchAge.evaluatedAtEpochMs,
+        1_000,
       );
     });
   });
@@ -184,7 +204,7 @@ describe("versioned analytical exports", () => {
       const refreshedSnapshotId = Number(
         workspace.connection
           .prepare(
-            "INSERT INTO genre_enrichment_snapshot (artist_id, provider, provider_entity_id, provider_response_schema_version, contract_version, provider_license, provider_attribution, fetched_at_epoch_ms, cache_state, outcome, supersedes_snapshot_id) VALUES (1, 'musicbrainz', 'c0ffee00-cafe-4000-8000-000000000001', 'musicbrainz-artist-v1', 'genre-evidence-v1', 'CC0 / CC BY-NC-SA', 'MusicBrainz', 1, 'success', 'success', ?)",
+            "INSERT INTO genre_enrichment_snapshot (artist_id, provider, provider_entity_id, provider_response_schema_version, contract_version, provider_license, provider_attribution, fetched_at_epoch_ms, cache_state, outcome, supersedes_snapshot_id) VALUES (1, 'musicbrainz', 'c0ffee00-cafe-4000-8000-000000000001', 'musicbrainz-artist-v1', 'genre-evidence-v1', 'CC0 / CC BY-NC-SA', 'MusicBrainz', 2000, 'success', 'success', ?)",
           )
           .run([priorSnapshotId]).lastInsertRowid,
       );

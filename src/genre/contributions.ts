@@ -5,7 +5,7 @@ import {
   type GenreEnrichmentCoverageCount,
 } from "./coverage.ts";
 
-export const GENRE_CONTRIBUTION_VERSION = "genre-contribution-v1";
+export const GENRE_CONTRIBUTION_VERSION = "genre-contribution-v2";
 export const GENRE_CONTRIBUTION_WEIGHTING_LEVEL = "artist";
 const CONTRIBUTION_DECIMAL_PLACES = 12;
 const CONTRIBUTION_SCALE = 10 ** CONTRIBUTION_DECIMAL_PLACES;
@@ -113,7 +113,7 @@ function contributionEvidenceSql(mode: GenreContributionMode): string {
         FROM latest
         JOIN genre_enrichment_raw_tag AS tag ON tag.snapshot_id = latest.snapshot_id
        WHERE latest.cache_state = 'success' AND tag.raw_weight > 0
-       ORDER BY latest.artist_id, tag.normalized_raw_tag`;
+       ORDER BY latest.artist_id, tag.normalized_raw_tag, tag.raw_tag_name`;
   }
   return `WITH latest AS (${latestSuccessfulSnapshotsSql})
     SELECT latest.artist_id, latest.fetched_at_epoch_ms,
@@ -293,7 +293,10 @@ function normalizeGenres(genres: readonly WeightedGenre[]): readonly WeightedGen
     const existing = byGenre.get(genre.genreId);
     byGenre.set(genre.genreId, {
       genreId: genre.genreId,
-      genreLabel: genre.genreLabel,
+      genreLabel:
+        existing === undefined || compareUnicodeCodeUnits(genre.genreLabel, existing.genreLabel) < 0
+          ? genre.genreLabel
+          : existing.genreLabel,
       rawWeight: (existing?.rawWeight ?? 0) + genre.rawWeight,
     });
   }

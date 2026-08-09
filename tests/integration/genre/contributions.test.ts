@@ -76,7 +76,11 @@ function addSnapshot(
   artistId: number,
   suffix: string,
   fetchedAt: number,
-  tags: readonly { readonly name: string; readonly weight: number }[],
+  tags: readonly {
+    readonly name: string;
+    readonly normalized?: string;
+    readonly weight: number;
+  }[],
 ): string {
   const providerId = `c0ffee00-cafe-4000-8000-${suffix.padStart(12, "0")}`;
   connection
@@ -96,11 +100,41 @@ function addSnapshot(
       .prepare(
         "INSERT INTO genre_enrichment_raw_tag (snapshot_id, raw_tag_name, normalized_raw_tag, raw_weight, confidence, is_recognized_genre) VALUES (?, ?, ?, ?, NULL, 1)",
       )
-      .run([snapshotId, tag.name, tag.name, tag.weight]);
+      .run([snapshotId, tag.name, tag.normalized ?? tag.name, tag.weight]);
   return providerId;
 }
 
 describe("P5-06 genre contributions", () => {
+  it("combines preserved raw-spelling collisions deterministically for analysis", () => {
+    const database = createTemporarySqliteDatabase();
+    try {
+      applyMigrations(database.connection, migrationsDirectory);
+      const artistId = addArtist(database.connection, "Collision", 1);
+      addSnapshot(database.connection, artistId, "collision", 900, [
+        { name: "dream-pop", normalized: "dream pop", weight: 3 },
+        { name: "dream pop", normalized: "dream pop", weight: 1 },
+      ]);
+
+      const result = generateGenreContributions({
+        connection: database.connection,
+        mode: "raw",
+        now: () => 1_000,
+        presentationTimezone: "America/Chicago",
+      });
+
+      assert.deepEqual(result.eventContributions[0]?.contributions, [
+        { contribution: 1, genreId: "dream pop", genreLabel: "dream pop" },
+      ]);
+      assert.equal(
+        database.connection.prepare("SELECT COUNT(*) AS count FROM genre_enrichment_raw_tag").get()
+          ?.count,
+        2,
+      );
+    } finally {
+      database.cleanup();
+    }
+  });
+
   it("normalizes multi-tag artist evidence per event with deterministic residual rounding", () => {
     const database = createTemporarySqliteDatabase();
     try {

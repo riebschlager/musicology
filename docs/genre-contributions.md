@@ -1,6 +1,6 @@
 # Genre contributions
 
-P5-06 defines `genre-contribution-v1`, a query-layer contract that translates optional artist
+P5-06 now exposes `genre-contribution-v2`, a query-layer contract that translates optional artist
 evidence into fractional canonical-event contributions. It does not persist assignments, modify
 provider snapshots, or create genre-era intervals; P5-07 will consume this contract.
 Each result reads its taxonomy, evidence, freshness, and canonical events from one deferred SQLite
@@ -10,7 +10,10 @@ snapshot.
 
 - `raw` uses positive MusicBrainz raw-tag vote weights only when the latest non-failure snapshot
   for the artist's one exact strong MusicBrainz identifier is successful. A newer negative result
-  therefore leaves the event missing rather than reviving older tags.
+  therefore leaves the event missing rather than reviving older tags. Distinct raw spellings that
+  share one matching normalization remain separate evidence rows; raw analysis combines their
+  weights under that normalized genre ID and chooses the label in stable Unicode code-unit order.
+  This preserved-collision behavior is the v2 change; v1 outputs predate migration 0015.
 - `curated` requires an installed immutable taxonomy version. It applies that version's mappings,
   excludes `ignore`, combines mapped raw weights by target category, and then normalizes them.
 

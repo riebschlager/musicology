@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import type { SqliteConnection, SqliteRow } from "../../../src/db/connection.ts";
-import { applyMigrations } from "../../../src/db/migrations.ts";
+import { applyMigrations, loadMigrationFiles } from "../../../src/db/migrations.ts";
 import { withTemporarySqliteDatabase } from "../../../src/db/temporary.ts";
 
 const migrationsDirectory = fileURLToPath(new URL("../../../migrations/", import.meta.url));
@@ -51,6 +51,19 @@ function foreignKeys(connection: SqliteConnection, table: string): readonly stri
 }
 
 describe("initial schema contract", () => {
+  it("preserves the applied genre evidence migration and extends it with a later migration", () => {
+    const migrations = loadMigrationFiles(migrationsDirectory);
+
+    assert.equal(
+      migrations.find((migration) => migration.version === 12)?.checksumSha256,
+      "4955692b7c7b22509600927e374d0db6646a995bc8098f7a43edc6be8e2a3c7c",
+    );
+    assert.equal(
+      migrations.find((migration) => migration.version === 14)?.name,
+      "enforce_genre_enrichment_evidence_invariants",
+    );
+  });
+
   it("backfills occurrence provenance and preserves existing file relationships", () => {
     withTemporarySqliteDatabase(({ connection }) => {
       for (const migration of [
@@ -670,6 +683,8 @@ describe("initial schema contract", () => {
           "add_lastfm_api_sync_metadata",
           "add_genre_enrichment_evidence_contract",
           "add_genre_taxonomy_mapping_workflow",
+          "enforce_genre_enrichment_evidence_invariants",
+          "preserve_distinct_genre_raw_tags",
         ],
       );
       assert.deepEqual(applyMigrations(connection, migrationsDirectory).appliedNow, []);

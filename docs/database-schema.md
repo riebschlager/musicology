@@ -37,6 +37,13 @@ provider, safe cache/error states, provider schema version, and privacy boundary
 categories and mappings. A taxonomy import can only add a version, never modify immutable provider
 snapshots or raw tags. Categories support a validated parent/child hierarchy; mappings preserve the
 explicit keep, combine, rename, or ignore decision for each known raw tag.
+`migrations/0014_enforce_genre_enrichment_evidence_invariants.sql` adds the exact-strong-identifier,
+failure-lineage, and append-only deletion triggers that extend the already-applied P5-02 evidence
+contract. Keeping those additions in a new migration preserves the recorded checksum of migration
+0012 while giving both upgraded and freshly built databases the same enforced schema.
+`migrations/0015_preserve_distinct_genre_raw_tags.sql` changes the raw-tag uniqueness key from
+matching normalization to exact provider text. This preserves distinct provider spellings that
+normalize to the same analytical mapping key while retaining every append-only evidence trigger.
 The schema separates operational metadata, immutable source evidence, music identity,
 reconciliation, canonical events, genre enrichment, synchronization cursors, and safe rejection
 diagnostics. Analytical aggregates remain queries over these layers; the schema deliberately

@@ -14,10 +14,10 @@ error. A `429` honors `Retry-After` when present. It
 allowlist-projects only the provider ID, tag name, vote count, and recognized-genre flag. Remote
 response bodies, URLs, and other fields are discarded and never logged or stored.
 
-The evidence contract permits one row per normalized raw tag. When MusicBrainz returns the same
-normalized value in both `tags` and `genres`, the recognized-genre value deterministically supplies
-the retained spelling and vote count, and its recognized flag is retained. Duplicate normalized
-values within either provider collection remain malformed responses.
+The evidence contract preserves distinct provider raw spellings even when they share one matching
+normalization. When MusicBrainz returns the exact same raw name in both `tags` and `genres`, the
+recognized-genre value deterministically supplies the retained vote count and recognized flag.
+Exact duplicate names within either provider collection remain malformed responses.
 
 `enrichArtists` takes a project-owned snapshot-cache boundary and processes targets in input order.
 It records each completed result before continuing, so a later run resumes from successful and

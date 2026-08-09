@@ -231,8 +231,11 @@ describe("P5-07 genre-era analysis", () => {
         usable: { artistCount: 2, eventCount: 16 },
       });
       assert.equal(result.result.mode, "raw");
+      assert.equal(result.result.contributionVersion, "genre-contribution-v2");
       assert.equal(result.result.taxonomyVersion, null);
       assert.equal(result.result.weightingLevel, "artist");
+      assert.equal(result.versions.analysis, "genre-era-v2");
+      assert.equal(result.versions.query, "canonical-genre-era-v2");
     });
   });
 

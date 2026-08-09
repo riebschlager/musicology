@@ -354,27 +354,26 @@ function parseArtistPayload(
   }
   const tags = parseTags(payload.tags, false);
   const genres = parseTags(payload.genres, true);
-  const byNormalizedTag = new Map<string, GenreEnrichmentSnapshot["rawTags"][number]>();
+  const byRawTagName = new Map<string, GenreEnrichmentSnapshot["rawTags"][number]>();
   for (const tag of tags) {
-    const existing = byNormalizedTag.get(tag.normalizedRawTag);
+    const existing = byRawTagName.get(tag.rawTagName);
     if (existing === undefined) {
-      byNormalizedTag.set(tag.normalizedRawTag, tag);
+      byRawTagName.set(tag.rawTagName, tag);
     } else {
       throw new MusicbrainzClientError(MusicbrainzClientErrorCategory.InvalidResponse);
     }
   }
   for (const genre of genres) {
-    const existing = byNormalizedTag.get(genre.normalizedRawTag);
+    const existing = byRawTagName.get(genre.rawTagName);
     if (existing?.isRecognizedGenre) {
       throw new MusicbrainzClientError(MusicbrainzClientErrorCategory.InvalidResponse);
     }
-    // MusicBrainz may return the same normalized value in both `tags` and `genres` with
-    // different presentation text or vote counts. The recognized-genre representation is the
-    // deterministic authoritative row because this contract permits one normalized tag per
-    // snapshot while preserving the provider's recognized-genre classification.
-    byNormalizedTag.set(genre.normalizedRawTag, genre);
+    // An exact provider tag repeated as a recognized genre is one evidence row whose recognized
+    // representation wins. Distinct raw spellings remain separate even when matching
+    // normalization collapses them for later analytical mapping.
+    byRawTagName.set(genre.rawTagName, genre);
   }
-  return [...byNormalizedTag.values()];
+  return [...byRawTagName.values()];
 }
 
 function parseTags(value: unknown, isRecognizedGenre: boolean): GenreEnrichmentSnapshot["rawTags"] {
