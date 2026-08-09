@@ -47,6 +47,7 @@ working with personal exports.
 
 - [Project approach](PROJECT_APPROACH.md)
 - [Phased project plan](PROJECT_PLAN.md)
+- [Public microsite product specification](docs/public-microsite-product-specification.md)
 - [Configuration and CLI conventions](docs/configuration-and-cli.md)
 - [Database schema](docs/database-schema.md)
 - [Phase 1 private archive import](docs/phase-1-private-archive-import.md)
