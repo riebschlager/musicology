@@ -8,6 +8,8 @@ const routes = [
   "/artists/synthetic-eligible-artist/",
   "/artists/synthetic-overlap-artist/",
   "/stories/",
+  "/stories/synthetic-rediscovery/",
+  "/stories/synthetic-dormancy/",
   "/explore/",
   "/methodology/",
   "/404.html",
@@ -157,6 +159,48 @@ test("an ineligible artist slug has the same static not-found experience", async
   await expect(page.locator("body")).not.toContainText("private-tail");
 });
 
+test("story state stays bounded and exposes reduced evidence without permanent claims", async ({
+  page,
+}) => {
+  await page.goto("/stories/?kind=dormancy&to=2018-06&view=list");
+  await expect(page.locator(".filter-panel__summary")).toContainText(
+    "Showing 1 reviewed dormancy story from Jun 2018–Jun 2018, list first",
+  );
+  await expect(page.locator("#story-index-table tbody tr")).toHaveCount(1);
+  await expect(page.locator("#story-index-table")).toContainText("Likely dormant as of 2021-01-01");
+  await expect(page.locator("body")).toContainText("right-censored and never permanent");
+  await expect(page.locator("body")).not.toContainText("likely_abandoned_as_of");
+  await expect(page.locator("link[rel='canonical']")).toHaveAttribute(
+    "href",
+    "https://music.the816.com/stories/?kind=dormancy&to=2018-06&view=list",
+  );
+});
+
+test("reviewed story detail exposes evidence, parameters, and only manual selected-track text", async ({
+  page,
+}) => {
+  await page.goto("/stories/synthetic-rediscovery/");
+  await expect(page.locator("h1")).toContainText("Title for synthetic-rediscovery");
+  await expect(page.getByText("Wholly manual selected-track identity")).toBeVisible();
+  await expect(
+    page.getByText("Wholly Manual Track Artist — Wholly Manual Selected Track"),
+  ).toBeVisible();
+  await expect(page.getByRole("table", { name: "Approved evidence" })).toContainText("425 days");
+  await expect(
+    page.getByRole("table", { name: "Published classification parameters" }),
+  ).toContainText("180 days");
+  await expect(page.locator("body")).toContainText("source gap can resemble an absence");
+  await expect(page.locator("body")).toContainText("does not create track-level evidence");
+  await expect(page.locator("body")).not.toContainText("private-tail");
+});
+
+test("an unreviewed story slug has the same static not-found experience", async ({ page }) => {
+  const response = await page.goto("/stories/private-tail/");
+  expect(response?.status()).toBe(404);
+  await expect(page.locator("h1")).toContainText("This part of the record is not public");
+  await expect(page.locator("body")).not.toContainText("private-tail");
+});
+
 test("the shell reflows at 320 CSS pixels and honors reduced motion", async ({ page }) => {
   await page.setViewportSize({ height: 800, width: 320 });
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -205,5 +249,23 @@ test("artist summaries, tables, and eligible detail remain when JavaScript is di
   await page.goto("http://127.0.0.1:4321/artists/synthetic-eligible-artist/");
   await expect(page.getByRole("table", { name: /Public period summaries/u })).toBeVisible();
   await expect(page.getByText("Reviewed featured-artist note")).toBeVisible();
+  await context.close();
+});
+
+test("story cards, evidence tables, and detail remain when JavaScript is disabled", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto("http://127.0.0.1:4321/stories/");
+  await expect(
+    page.getByRole("heading", { name: "Title for synthetic-rediscovery" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Reviewed return and dormancy story index" }),
+  ).toBeVisible();
+  await page.goto("http://127.0.0.1:4321/stories/synthetic-dormancy/");
+  await expect(page.getByRole("table", { name: "Approved evidence" })).toBeVisible();
+  await expect(page.locator("body")).toContainText("right-censored and never permanent");
   await context.close();
 });

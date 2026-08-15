@@ -27,6 +27,14 @@ track candidate and do not create track-level analytical evidence. Rediscovery e
 artist-scoped, and any non-null public artist slug on a rediscovery or dormancy story must resolve to
 the same private analytical artist through the reviewed selection map.
 
+Story evidence is reconciled before reduction: rediscovery gap days must equal the difference
+between the selected private prior-listen and return instants, and dormancy observation days must
+equal the interval from the selected private last listen through the analytical as-of boundary.
+After reduction, the public contract rechecks that each day count remains possible within its
+published month/date bounds. A supersession link is accepted only from a later rediscovery to a
+dormancy conclusion for the same private artist; the closed public artifact also rechecks link
+direction, public chronology, target presence, and matching public artist slugs when both are shown.
+
 P6-04 emits `history.json`, `artists.json`, `editorial.json`, and `stories.json`. `genre-lab.json`
 remains absent until P6-09. The committed full and empty synthetic snapshots under
 `tests/fixtures/public-snapshots` contain no private archive data and are suitable for downstream

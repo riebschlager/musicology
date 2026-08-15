@@ -474,7 +474,7 @@ function validateRediscoveryResult(input: unknown, label: string): void {
     if (record.scope !== "artist" && record.scope !== "track") incompatible(label);
     validateRequiredText(record.entityDisplayName, label);
     validatePositiveInteger(record.entityId, label);
-    validateNonNegativeInteger(record.gapDays, label);
+    validateNonNegativeSafeNumber(record.gapDays, label);
     validateNonNegativeInteger(record.persistencePlayCount, label);
     validateCanonicalTimestamp(record.priorListenAt, label);
     validateNonNegativeInteger(record.priorPlayCount, label);
@@ -516,7 +516,7 @@ function validateAbandonmentResult(input: unknown, label: string): void {
     validateNonNegativeSafeNumber(record.formerCadencePlaysPer30Days, label);
     validateNonNegativeInteger(record.historicalPlayCount, label);
     validateCanonicalTimestamp(record.lastListenAt, label);
-    validateNonNegativeInteger(record.observationDays, label);
+    validateNonNegativeSafeNumber(record.observationDays, label);
     if (record.status !== "dormant" && record.status !== "likely_abandoned_as_of") {
       incompatible(label);
     }

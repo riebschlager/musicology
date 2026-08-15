@@ -926,6 +926,160 @@
     color: var(--ink-soft);
   }
 
+  .story-explorer,
+  .story-evidence-grid,
+  .story-evidence-tables,
+  .story-prose,
+  .story-prose section {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .story-findings {
+    padding: var(--space-4);
+    border-left: 0.55rem solid var(--signal);
+    background: rgb(248 242 231 / 74%);
+  }
+
+  .story-findings ol {
+    display: grid;
+    margin: var(--space-3) 0 0;
+    padding-left: 1.4rem;
+    gap: var(--space-2);
+  }
+
+  .story-evidence-card {
+    display: grid;
+    position: relative;
+    padding: clamp(1.25rem, 3vw, 2.25rem);
+    border: 1px solid var(--ink);
+    border-top: 0.7rem solid var(--signal);
+    background: var(--paper-light);
+    box-shadow: var(--shadow);
+    gap: var(--space-3);
+  }
+
+  .story-evidence-card--dormancy {
+    border-top-color: var(--night);
+  }
+
+  .story-evidence-card__heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .story-evidence-card__heading .eyebrow {
+    margin: 0;
+  }
+
+  .story-evidence-card__period,
+  .story-evidence-card__track,
+  .story-evidence-card__link,
+  .story-evidence-card summary {
+    font-family: var(--font-label);
+    font-size: var(--step--1);
+  }
+
+  .story-evidence-card__period {
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  .story-evidence-card__track,
+  .story-selected-track {
+    padding: var(--space-3);
+    border-left: 0.4rem solid var(--needle);
+    background: rgb(190 203 45 / 13%);
+  }
+
+  .story-evidence-card__track span,
+  .story-selected-track span {
+    color: var(--signal-dark);
+  }
+
+  .story-classification {
+    padding: var(--space-3);
+    border-block: 1px solid var(--rule-light);
+  }
+
+  .story-classification .eyebrow {
+    margin-bottom: var(--space-1);
+  }
+
+  .story-warning-list {
+    display: grid;
+    margin: 0;
+    padding: var(--space-3) var(--space-3) var(--space-3) 2.4rem;
+    border: 1px dashed var(--rule);
+    background: rgb(236 227 210 / 62%);
+    gap: var(--space-2);
+  }
+
+  .story-supersession {
+    padding: var(--space-3);
+    border: 2px solid var(--signal-dark);
+    background: linear-gradient(135deg, rgb(201 64 35 / 12%), transparent 60%);
+  }
+
+  .story-supersession p + p {
+    margin-top: var(--space-2);
+  }
+
+  .story-evidence-card__details {
+    border-top: 1px solid var(--rule-light);
+  }
+
+  .story-evidence-card__details summary {
+    padding-block: var(--space-3);
+    cursor: pointer;
+    font-weight: 800;
+  }
+
+  .story-evidence-card__details[open] summary {
+    color: var(--signal-dark);
+  }
+
+  .story-evidence-card__link {
+    font-weight: 800;
+  }
+
+  .story-index-table td:last-child {
+    min-width: 16rem;
+  }
+
+  .story-selected-track {
+    display: grid;
+    max-width: 42rem;
+    gap: var(--space-2);
+  }
+
+  .story-selected-track .eyebrow {
+    margin: 0;
+  }
+
+  .story-prose {
+    max-width: var(--reading);
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    border: 1px solid var(--ink);
+    background: var(--paper-light);
+    box-shadow: var(--shadow);
+  }
+
+  .story-prose h3 {
+    margin-bottom: var(--space-2);
+  }
+
+  .story-related-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    font-family: var(--font-label);
+    font-size: var(--step--1);
+    font-weight: 800;
+  }
+
   .route-grid,
   .story-grid,
   .definition-grid {
@@ -1102,6 +1256,10 @@
     .editorial-story,
     .artist-interval-cards article,
     .featured-artist,
+    .story-evidence-card,
+    .story-prose,
+    .story-selected-track,
+    .story-supersession,
     .filter-panel,
     .metric-boundary,
     .disclosure-panel {
@@ -1132,8 +1290,14 @@
     .narrative-section,
     .disclosure-panel,
     .chart-frame,
-    .table-region {
+    .table-region,
+    .story-evidence-card,
+    .story-prose {
       break-inside: avoid;
+    }
+
+    .story-evidence-card__details:not([open]) > :not(summary) {
+      display: block;
     }
 
     a {

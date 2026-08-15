@@ -1,16 +1,17 @@
 ---
 import DisclosurePanel from "../components/DisclosurePanel.astro";
-import EditorialStory from "../components/EditorialStory.astro";
 import NarrativeSection from "../components/NarrativeSection.astro";
 import PageIntro from "../components/PageIntro.astro";
 import StatePanel from "../components/StatePanel.astro";
+import { StoryExplorer } from "../islands/StoryExplorer.tsx";
 import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { buildAnalyticalDisclosure, buildStoryCards } from "../view-models/site.ts";
+import { REDISCOVERY_CLASS_REGISTER } from "../view-models/stories.ts";
+import { buildAnalyticalDisclosure, formatNumber } from "../view-models/site.ts";
 
 const snapshot = loadSiteSnapshot();
 const disclosure = buildAnalyticalDisclosure(snapshot);
-const stories = buildStoryCards(snapshot.stories.data.stories);
+const storyCount = snapshot.stories.data.stories.length;
 ---
 
 <BaseLayout
@@ -32,7 +33,7 @@ const stories = buildStoryCards(snapshot.stories.data.stories);
     title="A return is evidence. Dormancy is only an observation."
     summary="Selected-track identity is wholly manual editorial detail. It never creates track-level analytical evidence or a hidden play history."
   >
-    {stories.length === 0 ? (
+    {storyCount === 0 ? (
       <StatePanel
         kind="empty"
         headingLevel={3}
@@ -40,18 +41,34 @@ const stories = buildStoryCards(snapshot.stories.data.stories);
         message="No unreviewed analytical candidate is substituted. The methodology still explains how future stories will be qualified."
       />
     ) : (
-      <div class="story-grid">
-        {stories.map((story) => (
-          <EditorialStory
-            id={story.slug}
-            kind={story.kind}
-            title={story.title}
-            summary={story.summary}
-            trackLabel={story.trackLabel}
-          />
-        ))}
-      </div>
+      <StoryExplorer
+        asOfDate={snapshot.manifest.asOfDate}
+        data={snapshot.stories.data}
+        client:load
+      />
     )}
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="return-classes"
+    index="02"
+    eyebrow="Three qualified return shapes"
+    title="Coming back is not one conclusion."
+    summary="The published class is fixed by the approved evidence and parameters. A later snapshot can add context, but this page never upgrades a return in the browser."
+  >
+    <div class="definition-grid">
+      {REDISCOVERY_CLASS_REGISTER.map((entry) => (
+        <article class="definition-card">
+          <h3>{entry.label}</h3>
+          <p>{entry.text}</p>
+        </article>
+      ))}
+    </div>
+    <p>
+      The current snapshot contains {formatNumber(storyCount)} reviewed {storyCount === 1 ? "story" : "stories"}.
+      Editorial selection keeps this reading path intentionally small; it is not a download of the
+      private analytical candidate set.
+    </p>
   </NarrativeSection>
 
   <DisclosurePanel disclosure={disclosure} />

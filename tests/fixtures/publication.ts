@@ -62,7 +62,7 @@ export const syntheticRediscovery = {
   classification: "sustained_rediscovery",
   entityDisplayName: "Synthetic Eligible Artist",
   entityId: 1,
-  gapDays: 366,
+  gapDays: 425,
   persistence: "persistent",
   persistencePlayCount: 4,
   priorListenAt: "2019-01-15T18:00:00.000Z",
@@ -93,7 +93,7 @@ export const syntheticDormancy = {
     startAt: "2018-01-01T06:00:00.000Z",
   },
   lastListenAt: "2018-06-30T23:59:59.999Z",
-  observationDays: 365,
+  observationDays: 915.25,
   status: "likely_abandoned_as_of",
 } as const;
 

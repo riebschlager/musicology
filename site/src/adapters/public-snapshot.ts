@@ -110,26 +110,93 @@ export interface PublicEditorialData {
 }
 
 export interface PublicStoryData {
-  readonly stories: readonly {
-    readonly accessibilitySummary: string;
-    readonly artistSlug: string | null;
-    readonly body: readonly PublicContentBlock[];
-    readonly evidence: Readonly<Record<string, unknown>>;
-    readonly kind: "dormancy" | "rediscovery";
-    readonly order: number;
-    readonly parameters: Readonly<Record<string, unknown>>;
-    readonly selectedTrack: {
-      readonly artistDisplayName: string;
-      readonly slug: string;
-      readonly storySlug: string;
-      readonly trackDisplayName: string;
-    } | null;
-    readonly slug: string;
-    readonly summary: string;
-    readonly supersedesStorySlug: string | null;
-    readonly title: string;
-  }[];
+  readonly stories: readonly PublicStory[];
 }
+
+interface PublicStoryBase {
+  readonly accessibilitySummary: string;
+  readonly artistSlug: string | null;
+  readonly body: readonly PublicContentBlock[];
+  readonly order: number;
+  readonly selectedTrack: PublicSelectedTrack | null;
+  readonly slug: string;
+  readonly summary: string;
+  readonly supersedesStorySlug: string | null;
+  readonly title: string;
+}
+
+export interface PublicSelectedTrack {
+  readonly artistDisplayName: string;
+  readonly slug: string;
+  readonly storySlug: string;
+  readonly trackDisplayName: string;
+}
+
+export interface PublicRediscoveryStory extends PublicStoryBase {
+  readonly evidence: {
+    readonly classification:
+      | "one_off_return"
+      | "return_beginning_new_era"
+      | "sustained_rediscovery";
+    readonly gapDays: number;
+    readonly persistence: "not_persistent" | "open" | "persistent";
+    readonly persistencePlayCount: number;
+    readonly priorPeriod: string;
+    readonly priorPlayCount: number;
+    readonly relatedEra: {
+      readonly endPeriodExclusive: string;
+      readonly startPeriod: string;
+    } | null;
+    readonly returnIntensity: number;
+    readonly returnPeriod: string;
+    readonly returnWindowComplete: boolean;
+  };
+  readonly kind: "rediscovery";
+  readonly parameters: {
+    readonly absenceThresholdDays: number;
+    readonly minimumPersistencePlayCount: number;
+    readonly minimumPriorPlayCount: number;
+    readonly minimumReturnPlayCount: number;
+    readonly persistenceWindowDays: number;
+    readonly returnWindowDays: number;
+    readonly scope: "artist" | "track";
+  };
+}
+
+export interface PublicDormancyStory extends PublicStoryBase {
+  readonly evidence: {
+    readonly activePeriodCount: number;
+    readonly confidence: {
+      readonly formerCadence: number;
+      readonly historicalImportance: number;
+      readonly observationCompleteness: number;
+      readonly score: number;
+    };
+    readonly formerCadencePlayCount: number;
+    readonly formerCadencePlaysPer30Days: number;
+    readonly historicalPlayCount: number;
+    readonly lastActivePeriod: {
+      readonly endPeriod: string;
+      readonly playCount: number;
+      readonly startPeriod: string;
+    };
+    readonly lastListenPeriod: string;
+    readonly observationDays: number;
+    readonly status: "dormant" | "likely_abandoned_as_of";
+  };
+  readonly kind: "dormancy";
+  readonly parameters: {
+    readonly activePeriodGapDays: number;
+    readonly dormancyDays: number;
+    readonly formerCadenceWindowDays: number;
+    readonly likelyAbandonedDays: number;
+    readonly minimumFormerCadencePlayCount: number;
+    readonly minimumHistoricalPlayCount: number;
+    readonly observationWindowDays: number;
+  };
+}
+
+export type PublicStory = PublicDormancyStory | PublicRediscoveryStory;
 
 export interface SiteSnapshot {
   readonly artists: PublicArtifactEnvelope<"artists", PublicArtistData>;

@@ -11,14 +11,19 @@ const baseRoutes: readonly (readonly [string, boolean, boolean | "optional"])[] 
   ["explore/index.html", true, true],
   ["history/index.html", true, true],
   ["methodology/index.html", true, false],
-  ["stories/index.html", true, false],
+  ["stories/index.html", true, "optional"],
 ] as const;
 const artistDirectory = path.join(root, "artists");
 const artistDetailRoutes = readdirSync(artistDirectory, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => [`artists/${entry.name}/index.html`, true, true] as const)
   .toSorted(([left], [right]) => left.localeCompare(right));
-const routes = [...baseRoutes, ...artistDetailRoutes];
+const storyDirectory = path.join(root, "stories");
+const storyDetailRoutes = readdirSync(storyDirectory, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => [`stories/${entry.name}/index.html`, true, false] as const)
+  .toSorted(([left], [right]) => left.localeCompare(right));
+const routes = [...baseRoutes, ...artistDetailRoutes, ...storyDetailRoutes];
 
 const privateFieldTokens = [
   "canonicalSnapshotSha256",
@@ -117,7 +122,7 @@ assert.equal(
 );
 
 console.log(
-  `Verified ${routes.length} static route files (${artistDetailRoutes.length} eligible artist detail) and ${allFiles.length} total assets.`,
+  `Verified ${routes.length} static route files (${artistDetailRoutes.length} eligible artist detail, ${storyDetailRoutes.length} reviewed story detail) and ${allFiles.length} total assets.`,
 );
 
 function listFiles(directory: string): string[] {

@@ -11,6 +11,7 @@ import {
 import {
   PublicationProjectionError,
   type PublicationProjectionInput,
+  dormancySelectionKey,
   projectPublicSnapshot,
   rediscoverySelectionKey,
 } from "../../../src/publication/projection.ts";
@@ -193,6 +194,94 @@ describe("P6-04 private-to-public projection", () => {
         ),
       };
       assertProjectionError(() => projectPublicSnapshot(loaded, dormancyInput));
+    });
+  });
+
+  it("accepts only a later same-artist rediscovery superseding dormancy", () => {
+    withBundle({}, (directory) => {
+      const loaded = loadPrivateAnalyticalBundle(directory, syntheticDatabaseState);
+      const sameArtist = structuredClone(loaded) as LoadedPrivateAnalyticalBundle;
+      const rediscovery = sameArtist.rediscovery.result.rediscoveries[0];
+      const dormancy = sameArtist.abandonment.result.artists[0];
+      assert.ok(rediscovery);
+      assert.ok(dormancy);
+      (dormancy as { artistId: number }).artistId = rediscovery.entityId;
+      const base = syntheticPublicationInput();
+      const validInput: PublicationProjectionInput = {
+        ...base,
+        stories: base.stories.map((story) =>
+          story.kind === "rediscovery"
+            ? { ...story, supersedesStorySlug: "synthetic-dormancy" }
+            : {
+                ...story,
+                artistSlug: "synthetic-eligible-artist",
+                selectionKey: dormancySelectionKey(dormancy),
+              },
+        ),
+      };
+      const projected = projectPublicSnapshot(sameArtist, validInput);
+      const stories = (projected.artifacts.stories.data as { stories: Record<string, unknown>[] })
+        .stories;
+      assert.equal(stories[0]?.supersedesStorySlug, "synthetic-dormancy");
+
+      const notLater = structuredClone(sameArtist) as LoadedPrivateAnalyticalBundle;
+      const notLaterDormancy = notLater.abandonment.result.artists[0];
+      assert.ok(notLaterDormancy);
+      const laterLastListenAt = "2020-04-15T18:00:00.000Z";
+      (notLaterDormancy as { lastListenAt: string }).lastListenAt = laterLastListenAt;
+      (notLaterDormancy.lastActivePeriod as { endAt: string }).endAt = laterLastListenAt;
+      (notLaterDormancy as { observationDays: number }).observationDays =
+        (Date.parse(notLater.abandonment.asOf ?? "") - 1 - Date.parse(laterLastListenAt)) /
+        86_400_000;
+      (notLaterDormancy as { status: "dormant" }).status = "dormant";
+      const notLaterInput: PublicationProjectionInput = {
+        ...validInput,
+        stories: validInput.stories.map((story) =>
+          story.kind === "dormancy"
+            ? { ...story, selectionKey: dormancySelectionKey(notLaterDormancy) }
+            : story,
+        ),
+      };
+      assertProjectionError(() => projectPublicSnapshot(notLater, notLaterInput));
+
+      const differentArtistInput: PublicationProjectionInput = {
+        ...base,
+        stories: base.stories.map((story) =>
+          story.kind === "rediscovery"
+            ? { ...story, supersedesStorySlug: "synthetic-dormancy" }
+            : story,
+        ),
+      };
+      assertProjectionError(() => projectPublicSnapshot(loaded, differentArtistInput));
+
+      const reversedInput: PublicationProjectionInput = {
+        ...base,
+        stories: base.stories.map((story) =>
+          story.kind === "dormancy"
+            ? { ...story, supersedesStorySlug: "synthetic-rediscovery" }
+            : story,
+        ),
+      };
+      assertProjectionError(() => projectPublicSnapshot(loaded, reversedInput));
+    });
+  });
+
+  it("rejects selected story day counts that do not reconcile to exact private instants", () => {
+    withBundle({}, (directory) => {
+      const loaded = loadPrivateAnalyticalBundle(directory, syntheticDatabaseState);
+      const badGap = structuredClone(loaded) as LoadedPrivateAnalyticalBundle;
+      const rediscovery = badGap.rediscovery.result.rediscoveries[0];
+      assert.ok(rediscovery);
+      (rediscovery as { gapDays: number }).gapDays += 1;
+      assertProjectionError(() => projectPublicSnapshot(badGap, syntheticPublicationInput()));
+
+      const badObservation = structuredClone(loaded) as LoadedPrivateAnalyticalBundle;
+      const dormancy = badObservation.abandonment.result.artists[0];
+      assert.ok(dormancy);
+      (dormancy as { observationDays: number }).observationDays += 1;
+      assertProjectionError(() =>
+        projectPublicSnapshot(badObservation, syntheticPublicationInput()),
+      );
     });
   });
 

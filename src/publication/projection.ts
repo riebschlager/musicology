@@ -26,6 +26,7 @@ import {
 } from "./policy.ts";
 
 export const PUBLICATION_INPUT_SCHEMA_VERSION = "publication-input-v1";
+const DAY_MS = 86_400_000;
 
 export interface PublicationContentInput {
   readonly accessibilitySummary: string;
@@ -440,7 +441,8 @@ function projectStories(
   );
   const selectedTracks = selectEditorialTrackDetails(input.selectedTracks);
   const tracksByStory = new Map(selectedTracks.map((track) => [track.storySlug, track]));
-  const authoredSlugs = new Set(input.stories.map((story) => story.slug));
+  const authoredStories = new Map(input.stories.map((story) => [story.slug, story]));
+  const authoredSlugs = new Set(authoredStories.keys());
   for (const track of selectedTracks) {
     if (!authoredSlugs.has(track.storySlug)) {
       throw new PublicationProjectionError(
@@ -471,6 +473,9 @@ function projectStories(
           "A story supersession reference does not resolve in this snapshot",
         );
       }
+      if (story.supersedesStorySlug !== null && story.kind !== "rediscovery") {
+        invalidEditorial("Only a later rediscovery may supersede an approved story");
+      }
       const selectedTrack = tracksByStory.get(story.slug) ?? null;
       if (story.kind === "rediscovery") {
         const record = rediscoveries.get(story.selectionKey);
@@ -481,6 +486,8 @@ function projectStories(
         ) {
           staleStory();
         }
+        validateRediscoveryGap(record);
+        validateStorySupersession(story, record, authoredStories, dormancies);
         validateStoryArtistBinding(story.artistSlug, record.entityId, artistSelections);
         return {
           ...projectContent(story),
@@ -525,6 +532,7 @@ function projectStories(
       }
       const record = dormancies.get(story.selectionKey);
       if (record === undefined) staleStory();
+      validateDormancyObservation(record, bundle.abandonment.asOf);
       validateStoryArtistBinding(story.artistSlug, record.artistId, artistSelections);
       return {
         ...projectContent(story),
@@ -574,6 +582,39 @@ function projectStories(
     })
     .toSorted(compareContentOrder);
   return { stories } as unknown as JsonObject;
+}
+
+function validateRediscoveryGap(record: RediscoveryRecord): void {
+  const exactGapDays =
+    (Date.parse(record.returnStartedAt) - Date.parse(record.priorListenAt)) / DAY_MS;
+  if (!nearlyEqual(record.gapDays, exactGapDays)) incompatible();
+}
+
+function validateDormancyObservation(record: AbandonmentRecord, asOf: string | null): void {
+  if (asOf === null) incompatible();
+  const exactObservationDays = (Date.parse(asOf) - 1 - Date.parse(record.lastListenAt)) / DAY_MS;
+  if (!nearlyEqual(record.observationDays, exactObservationDays)) incompatible();
+}
+
+function validateStorySupersession(
+  story: PublicationProjectionInput["stories"][number],
+  rediscovery: RediscoveryRecord,
+  authoredStories: ReadonlyMap<string, PublicationProjectionInput["stories"][number]>,
+  dormancies: ReadonlyMap<string, AbandonmentRecord>,
+): void {
+  if (story.supersedesStorySlug === null) return;
+  const supersededStory = authoredStories.get(story.supersedesStorySlug);
+  if (supersededStory?.kind !== "dormancy") {
+    invalidEditorial("A rediscovery may supersede only an approved dormancy story");
+  }
+  const dormancy = dormancies.get(supersededStory.selectionKey);
+  if (dormancy === undefined) staleStory();
+  if (
+    rediscovery.entityId !== dormancy.artistId ||
+    rediscovery.returnStartedAt <= dormancy.lastListenAt
+  ) {
+    invalidEditorial("A story supersession must be a later rediscovery of the same dormant artist");
+  }
 }
 
 function validateStoryArtistBinding(
@@ -786,6 +827,10 @@ function compareContentOrder(
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= 1e-9;
 }
 
 function isPositiveInteger(value: unknown): value is number {

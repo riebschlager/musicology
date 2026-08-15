@@ -54,7 +54,7 @@ function commonArtifact(artifact: string, data: unknown) {
   return {
     analyticalVersions: requiredVersions,
     artifact,
-    asOfDate: "2026-08-09",
+    asOfDate: "2021-01-01",
     coverage: {
       canonicalEventCount,
       dateRange: { endPeriodExclusive: "2021-01", startPeriod: "2020-01" },
@@ -191,7 +191,7 @@ function validArtifacts(): readonly unknown[] {
           artistSlug: "synthetic-eligible-artist",
           evidence: {
             classification: "sustained_rediscovery",
-            gapDays: 180,
+            gapDays: 365,
             persistence: "persistent",
             persistencePlayCount: 4,
             priorPeriod: "2019-01",
@@ -239,7 +239,7 @@ function validArtifacts(): readonly unknown[] {
               startPeriod: "2018-01",
             },
             lastListenPeriod: "2018-06",
-            observationDays: 365,
+            observationDays: 915,
             status: "likely_abandoned_as_of",
           },
           kind: "dormancy",
@@ -519,6 +519,73 @@ describe("public artifact contract", () => {
     assert.ok(rediscovery);
     rediscovery.evidence.priorPeriod = "2021-01";
     assert.throws(() => validatePublicArtifact(stories), /prior period must not follow/u);
+
+    const inconsistentGap = structuredClone(validArtifacts()[3]) as Record<string, unknown>;
+    const gapEvidence = (
+      inconsistentGap.data as { stories: { evidence: Record<string, unknown> }[] }
+    ).stories[0]?.evidence;
+    assert.ok(gapEvidence);
+    gapEvidence.gapDays = 30;
+    assert.throws(
+      () => validatePublicArtifact(inconsistentGap),
+      /does not reconcile to its reduced public dates/u,
+    );
+
+    const inconsistentObservation = structuredClone(validArtifacts()[3]) as Record<string, unknown>;
+    const observationEvidence = (
+      inconsistentObservation.data as { stories: { evidence: Record<string, unknown> }[] }
+    ).stories[1]?.evidence;
+    assert.ok(observationEvidence);
+    observationEvidence.observationDays = 365;
+    assert.throws(
+      () => validatePublicArtifact(inconsistentObservation),
+      /does not reconcile to its reduced public dates/u,
+    );
+  });
+
+  it("accepts only later same-artist rediscovery-to-dormancy supersession", () => {
+    const valid = structuredClone(validArtifacts()[3]) as Record<string, unknown>;
+    const validStories = (valid.data as { stories: Record<string, unknown>[] }).stories;
+    const rediscovery = validStories[0];
+    const dormancy = validStories[1];
+    assert.ok(rediscovery);
+    assert.ok(dormancy);
+    dormancy.artistSlug = rediscovery.artistSlug;
+    rediscovery.supersedesStorySlug = dormancy.slug;
+    assert.equal(validatePublicArtifact(valid), valid);
+
+    const missing = structuredClone(valid) as Record<string, unknown>;
+    const missingRediscovery = (missing.data as { stories: Record<string, unknown>[] }).stories[0];
+    assert.ok(missingRediscovery);
+    missingRediscovery.supersedesStorySlug = "missing-dormancy-story";
+    assert.throws(() => validatePublicArtifact(missing), /present dormancy story/u);
+
+    const reversed = structuredClone(valid) as Record<string, unknown>;
+    const reversedStories = (reversed.data as { stories: Record<string, unknown>[] }).stories;
+    const reversedRediscovery = reversedStories[0];
+    const reversedDormancy = reversedStories[1];
+    assert.ok(reversedRediscovery);
+    assert.ok(reversedDormancy);
+    reversedRediscovery.supersedesStorySlug = null;
+    reversedDormancy.supersedesStorySlug = reversedRediscovery.slug;
+    assert.throws(() => validatePublicArtifact(reversed), /Only a rediscovery story/u);
+
+    const differentArtist = structuredClone(valid) as Record<string, unknown>;
+    const differentDormancy = (differentArtist.data as { stories: Record<string, unknown>[] })
+      .stories[1];
+    assert.ok(differentDormancy);
+    differentDormancy.artistSlug = "different-public-artist";
+    assert.throws(() => validatePublicArtifact(differentArtist), /same public artist/u);
+
+    const nonLater = structuredClone(valid) as Record<string, unknown>;
+    const nonLaterRediscovery = (nonLater.data as { stories: Record<string, unknown>[] })
+      .stories[0];
+    assert.ok(nonLaterRediscovery);
+    const evidence = nonLaterRediscovery.evidence as Record<string, unknown>;
+    evidence.priorPeriod = "2017-06";
+    evidence.returnPeriod = "2018-06";
+    evidence.gapDays = 365;
+    assert.throws(() => validatePublicArtifact(nonLater), /must occur after/u);
   });
 });
 

@@ -116,7 +116,7 @@ const parameterRows = Object.entries(snapshot.artists.data.parameters).toSorted(
               : `${story.selectedTrack.artistDisplayName} — ${story.selectedTrack.trackDisplayName}`}
           >
             <p>
-              <a href={`/stories/#${story.slug}`}>Read the reviewed story context</a>
+              <a href={`/stories/${story.slug}/`}>Read the reviewed story context</a>
             </p>
           </EditorialStory>
         ))}

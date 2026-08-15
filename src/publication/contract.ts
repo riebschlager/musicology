@@ -9,6 +9,8 @@ export const PUBLIC_ARTIFACT_SCHEMA_VERSION = "public-artifact-v1";
 export const PUBLIC_MANIFEST_SCHEMA_VERSION = "public-manifest-v1";
 export const PUBLIC_REVIEW_REPORT_SCHEMA_VERSION = "public-review-report-v1";
 export const PUBLIC_GENERATION_VERSION = "public-snapshot-generator-v1";
+const DAY_MS = 86_400_000;
+const DAY_COUNT_TOLERANCE = 1e-9;
 
 export const PUBLIC_ARTIFACT_FILES = {
   artists: "artists.json",
@@ -394,7 +396,7 @@ export function validatePublicArtifact(
       validateEditorialData(object.data);
       break;
     case "stories":
-      requiredAnalyses = validateStoriesData(object.data);
+      requiredAnalyses = validateStoriesData(object.data, object.asOfDate);
       break;
     case "genre-lab":
       validateGenreLabData(object.data);
@@ -1106,7 +1108,7 @@ function validateBody(input: unknown, label: string): void {
   }
 }
 
-function validateStoriesData(input: unknown): readonly PublicAnalysisName[] {
+function validateStoriesData(input: unknown, asOfDate: unknown): readonly PublicAnalysisName[] {
   const object = exactObject(input, "Stories data", ["stories"]);
   const stories = boundedArray(
     object.stories,
@@ -1115,6 +1117,7 @@ function validateStoriesData(input: unknown): readonly PublicAnalysisName[] {
   );
   const slugs = new Set<string>();
   const requiredAnalyses = new Set<PublicAnalysisName>();
+  const validatedStories: Record<string, unknown>[] = [];
   for (const item of stories) {
     const story = exactObject(item, "Story", [
       ...commonEditorialKeys,
@@ -1140,10 +1143,44 @@ function validateStoriesData(input: unknown): readonly PublicAnalysisName[] {
       validateRediscoveryEvidence(story.evidence, story.parameters);
     } else {
       requiredAnalyses.add("abandonment");
-      validateDormancyEvidence(story.evidence, story.parameters);
+      validateDormancyEvidence(story.evidence, story.parameters, asOfDate);
+    }
+    validatedStories.push(story);
+  }
+  validatePublicStorySupersessions(validatedStories);
+  return [...requiredAnalyses].toSorted();
+}
+
+function validatePublicStorySupersessions(stories: readonly Record<string, unknown>[]): void {
+  const bySlug = new Map(stories.map((story) => [story.slug as string, story]));
+  for (const story of stories) {
+    if (story.supersedesStorySlug === null) continue;
+    if (story.kind !== "rediscovery") {
+      throw new PublicContractError("Only a rediscovery story may supersede another story");
+    }
+    const superseded = bySlug.get(story.supersedesStorySlug as string);
+    if (superseded?.kind !== "dormancy") {
+      throw new PublicContractError(
+        "A rediscovery story may supersede only a present dormancy story",
+      );
+    }
+    if (
+      story.artistSlug !== null &&
+      superseded.artistSlug !== null &&
+      story.artistSlug !== superseded.artistSlug
+    ) {
+      throw new PublicContractError("Superseding stories must name the same public artist");
+    }
+    const rediscoveryEvidence = story.evidence as Record<string, unknown>;
+    const dormancyEvidence = superseded.evidence as Record<string, unknown>;
+    if (
+      (rediscoveryEvidence.returnPeriod as string) <= (dormancyEvidence.lastListenPeriod as string)
+    ) {
+      throw new PublicContractError(
+        "A superseding rediscovery must occur after the dormant artist's last listen",
+      );
     }
   }
-  return [...requiredAnalyses].toSorted();
 }
 
 function validateSelectedTrack(input: unknown, storySlug: string): void {
@@ -1188,7 +1225,7 @@ function validateRediscoveryEvidence(input: unknown, parametersInput: unknown): 
   ) {
     throw new PublicContractError("Invalid rediscovery persistence");
   }
-  validateCount(evidence.gapDays, "Rediscovery gap days");
+  validateNonNegativeNumber(evidence.gapDays, "Rediscovery gap days");
   validateCount(evidence.persistencePlayCount, "Rediscovery persistence play count");
   validateMonth(evidence.priorPeriod, "Rediscovery prior period");
   validateCount(evidence.priorPlayCount, "Rediscovery prior play count");
@@ -1197,6 +1234,12 @@ function validateRediscoveryEvidence(input: unknown, parametersInput: unknown): 
   if ((evidence.priorPeriod as string) > (evidence.returnPeriod as string)) {
     throw new PublicContractError("Rediscovery prior period must not follow its return period");
   }
+  validateReducedMonthDaySpan(
+    evidence.gapDays as number,
+    evidence.priorPeriod as string,
+    evidence.returnPeriod as string,
+    "Rediscovery gap days",
+  );
   if ((evidence.gapDays as number) < parameters.absenceThresholdDays) {
     throw new PublicContractError("Rediscovery gap must meet its published absence threshold");
   }
@@ -1245,7 +1288,11 @@ function validateRediscoveryEvidence(input: unknown, parametersInput: unknown): 
   }
 }
 
-function validateDormancyEvidence(input: unknown, parametersInput: unknown): void {
+function validateDormancyEvidence(
+  input: unknown,
+  parametersInput: unknown,
+  asOfDate: unknown,
+): void {
   const parameters = validateDormancyParameters(parametersInput);
   const evidence = exactObject(input, "Dormancy evidence", [
     "activePeriodCount",
@@ -1266,7 +1313,7 @@ function validateDormancyEvidence(input: unknown, parametersInput: unknown): voi
   validateCount(evidence.formerCadencePlayCount, "Former cadence play count");
   validateCount(evidence.historicalPlayCount, "Historical play count");
   validateMonth(evidence.lastListenPeriod, "Last-listen period");
-  validateCount(evidence.observationDays, "Observation days");
+  validateNonNegativeNumber(evidence.observationDays, "Observation days");
   const active = exactObject(evidence.lastActivePeriod, "Last active period", [
     "endPeriod",
     "playCount",
@@ -1280,6 +1327,15 @@ function validateDormancyEvidence(input: unknown, parametersInput: unknown): voi
   if (evidence.lastListenPeriod !== active.endPeriod) {
     throw new PublicContractError("Last-listen period must equal the last active period end");
   }
+  if (typeof asOfDate !== "string") {
+    throw new PublicContractError("A dormancy story requires a public as-of date");
+  }
+  validateReducedMonthToDateDaySpan(
+    evidence.observationDays as number,
+    evidence.lastListenPeriod as string,
+    asOfDate,
+    "Dormancy observation days",
+  );
   validateCount(active.playCount, "Last active period play count");
   const confidence = exactObject(evidence.confidence, "Dormancy confidence", [
     "formerCadence",
@@ -1671,6 +1727,56 @@ function validateTimezone(value: unknown): asserts value is string {
 function validateMonth(value: unknown, label: string): asserts value is string {
   if (typeof value !== "string" || !/^\d{4}-(?:0[1-9]|1[0-2])$/u.test(value)) {
     throw new PublicContractError(`${label} must use YYYY-MM public month granularity`);
+  }
+}
+
+function validateReducedMonthDaySpan(
+  days: number,
+  earlierMonth: string,
+  laterMonth: string,
+  label: string,
+): void {
+  const earlier = conservativeMonthUtcBounds(earlierMonth);
+  const later = conservativeMonthUtcBounds(laterMonth);
+  const minimumDays = Math.max(0, (later.start - earlier.endExclusive) / DAY_MS);
+  const maximumDays = (later.endExclusive - earlier.start) / DAY_MS;
+  validateDayCountRange(days, minimumDays, maximumDays, label);
+}
+
+function validateReducedMonthToDateDaySpan(
+  days: number,
+  earlierMonth: string,
+  laterDate: string,
+  label: string,
+): void {
+  const earlier = conservativeMonthUtcBounds(earlierMonth);
+  const laterStart = Date.parse(`${laterDate}T00:00:00.000Z`);
+  const minimumDays = Math.max(0, (laterStart - earlier.endExclusive) / DAY_MS);
+  const maximumDays = (laterStart + DAY_MS - earlier.start) / DAY_MS;
+  validateDayCountRange(days, minimumDays, maximumDays, label);
+}
+
+function conservativeMonthUtcBounds(month: string): {
+  readonly endExclusive: number;
+  readonly start: number;
+} {
+  const [yearText, monthText] = month.split("-");
+  const year = Number(yearText);
+  const monthIndex = Number(monthText) - 1;
+  return {
+    endExclusive: Date.UTC(year, monthIndex + 1, 1) + DAY_MS,
+    start: Date.UTC(year, monthIndex, 1) - DAY_MS,
+  };
+}
+
+function validateDayCountRange(
+  days: number,
+  minimumDays: number,
+  maximumDays: number,
+  label: string,
+): void {
+  if (days + DAY_COUNT_TOLERANCE < minimumDays || days - DAY_COUNT_TOLERANCE > maximumDays) {
+    throw new PublicContractError(`${label} does not reconcile to its reduced public dates`);
   }
 }
 
