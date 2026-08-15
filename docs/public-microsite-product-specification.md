@@ -19,8 +19,8 @@ P6-01's dependencies are satisfied:
 - Phase 4 archive validation records the early sparse evidence, the 2017–2024 Last.fm source gap,
   overlap behavior, partial Spotify duration coverage, and the right-censored recent edge.
 - Phase 5 supplies `genre-eras.json`, but its fitness assessment is **experimental; not fit for an
-  unqualified user-facing genre-era view**. The genre lab is therefore conditional and outside the
-  first-release core until P6-09 repeats the activation check.
+  unqualified user-facing genre-era view**. P6-09 subsequently deferred the genre lab from the
+  first release; a future activation requires new evidence and an explicit publication decision.
 
 The plan and implemented state agree. No route below needs a new private analytical query to define
 its first-release default. P6-02 may narrow what is publishable, and P6-04 must project the listed
@@ -62,8 +62,8 @@ The release opens with one continuous argument on `/`:
    and invitations to explore the bounded public data or read the methodology.
 
 The long-form overview is the canonical entry point. `/history/`, `/artists/`, `/stories/`, and
-`/explore/` deepen it; `/methodology/` substantiates it. The conditional genre lab never interrupts
-this core narrative or appears as complete history.
+`/explore/` deepen it; `/methodology/` substantiates it. The deferred genre lab does not interrupt
+this core narrative or appear as complete history.
 
 ## Information hierarchy
 
@@ -80,7 +80,7 @@ destinations remain in one labeled navigation landmark and in document order.
 │   └── /stories/[storySlug]/
 ├── /explore/
 ├── /methodology/
-└── /lab/genres/             conditional; activate or omit as a whole
+└── /lab/genres/             deferred; future activation only as a complete route
 ```
 
 Every page follows the same reading hierarchy:
@@ -341,10 +341,14 @@ can trace a page back to its inputs and fallback behavior.
 
 ### Route: `/lab/genres/`
 
+**Initial-release status:** deferred by P6-09; neither its HTML nor data ships. The requirements
+below remain the complete future activation contract rather than a placeholder implementation.
+
 - **Question:** What tentative genre-era patterns appear in the currently usable enrichment, and
   how much of the history can that evidence actually describe?
-- **Narrative role:** Optional experimental lab, isolated from the first-release thesis and absent
-  entirely unless P6-09 activates it after reviewing the intended public snapshot.
+- **Narrative role:** Deferred experimental lab, isolated from the first-release thesis and absent
+  entirely unless a future decision activates it after reviewing improved evidence and the intended
+  public snapshot.
 - **Default view:** If activated, a bounded raw-tag interval view preceded by the experimental
   status and current usable-event coverage; no genre view appears on `/` as complete history.
 - **Filters:** Approved range and bounded public genre selection. Mode remains `raw` while taxonomy
@@ -353,8 +357,8 @@ can trace a page back to its inputs and fallback behavior.
   `view=timeline|table`.
 - **Drill-down:** Evidence opens methodology coverage/freshness definitions, not unreviewed provider
   payloads or an artist long tail.
-- **Supporting input:** `genre-eras.json` only after P6-09 activation and P6-02 public projection,
-  plus authored experimental framing.
+- **Supporting input:** `genre-eras.json` only after a future explicit activation decision and
+  P6-02-compatible public projection, plus authored experimental framing.
 - **Uncertainty disclosure:** Always show `musicbrainz`, `raw` mode, taxonomy `null`, artist-level
   weighting, `genre-contribution-v2`, freshness, overall and across-time usable-event coverage, and
   the risk that current provider tags are sparse, noisy, or not historically contemporaneous.
@@ -380,7 +384,7 @@ its private fields.
 | Artist timeline, overlap, peak and component inspection | `artist-eras.json` / `artist-era-v1` | Parameterized intervals over eligible artists, never a permanent label or exhaustive public catalog |
 | Rediscovery classification and selected return evidence | `rediscovery.json` / `rediscovery-v1` | Manually selected, granularity-reduced stories with gap and persistence qualification |
 | Dormancy status, confidence, observation and supersession | `abandonment.json` / `abandonment-v1` | Reversible as-of observations over manually selected eligible artists |
-| Conditional genre interval and coverage inspection | `genre-eras.json` / `genre-era-v2` | Experimental raw MusicBrainz artist-level evidence only if P6-09 activates it |
+| Deferred genre interval and coverage inspection | `genre-eras.json` / `genre-era-v2` | Future-only experimental raw MusicBrainz artist-level evidence after a new explicit activation decision |
 | Narrative annotations, featured artists, story order and personal interpretation | Versioned authored public content | Editorial framing; analytical facts resolve through approved public references |
 | Disclosures, version/as-of labels and methodology definitions | Approved public manifest plus projected analytical envelopes | The same definitions and limitations used by the visible view |
 
@@ -509,8 +513,9 @@ P6-01 intentionally leaves these decisions to their named checkpoints:
 - P6-04 defines and implements public artifacts/view models. It may project less than a private
   analytical artifact contains, never more than P6-02 authorizes.
 - P6-05 through P6-08 implement the core routes and content system.
-- P6-09 either activates the complete experimental genre route under its disclosure gate or omits
-  the route and data. Partial or unqualified activation is not a valid outcome.
+- P6-09 defers the experimental genre route and omits both the route and data from the initial
+  release. A future activation requires the complete disclosure gate and a new explicit decision;
+  partial or unqualified activation is not a valid outcome.
 
 The initial microsite has no requirement for raw export access, a SQLite connection, a production
 server, a hosted database/query service, visitor accounts, or an event-level listening log.

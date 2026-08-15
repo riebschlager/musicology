@@ -304,8 +304,8 @@ at 320, 768, and 1440 CSS-pixel widths. A reduced-motion capture is included for
 Firefox, WebKit, native system-font rasterization, and authored copy are checked functionally rather
 than through cross-platform pixel baselines. Visual snapshots mask no analytical value and are
 updated only with an intentional reviewed UI change. P6-05 establishes the first shell baselines;
-P6-06 through P6-09 add only the route-specific stable states they introduce; P6-11 performs the
-final production-artifact pass.
+P6-06 through P6-08 add only the route-specific stable states they introduce. P6-09 adds no visual
+baseline because the genre lab is deferred; P6-11 performs the final production-artifact pass.
 
 ## Performance budgets
 

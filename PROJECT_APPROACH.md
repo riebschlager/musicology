@@ -745,8 +745,8 @@ Exit condition: genre results report taxonomy, weighting, provider, and coverage
   manual review and approval boundary.
 - Build the Astro/Preact/Observable Plot static experience around the long view, coverage,
   artist-era exploration, selected track stories, rediscovery, and dormancy.
-- Include genre only as an unmistakably experimental lab when the Phase 5 fitness assessment can be
-  communicated honestly; otherwise defer it.
+- Defer genre from the initial release. Reconsider it only as an unmistakably experimental lab
+  after the Phase 5 fitness assessment improves and a new publication decision is recorded.
 - Deploy the approved static artifact through GitHub Pages at `music.the816.com` with reproducible
   build, verification, and rollback.
 
@@ -774,15 +774,20 @@ deployed, and rolled back without private inputs at runtime or knowledge of raw 
 | Database becomes irreproducible | Immutable inputs, committed migrations, versioned rules, exportable manual decisions |
 | Tool churn constrains the project | Thin adapters, explicit SQL, small dependency surface, stable domain contracts |
 
-## 21. Decisions still to make
+## 21. Decisions and deferred follow-up
 
-The remaining Phase 6 decisions are intentionally deferred to the evidence-gathering tasks named in
-the detailed plan:
+P6-09 resolved the genre presentation decision on 2026-08-15: the experimental genre lab is
+deferred from the initial release. The Phase 5 evidence remains useful and independently
+refreshable, but current exact-identity coverage, uneven usable-event coverage over time,
+raw artist-level tags, and the absence of a reviewed curated taxonomy do not support prioritizing a
+public genre experience. A future task may reconsider the lab only after the activation evidence
+recorded in [`docs/decisions/phase-6-genre-lab-deferral.md`](docs/decisions/phase-6-genre-lab-deferral.md)
+is available and a new explicit publication decision is recorded.
+
+The other Phase 6 decisions remain at their named checkpoints:
 
 1. The exact public artist eligibility threshold and first set of authored artist/track stories.
-2. Whether the initial release should include the experimental genre lab or defer it until coverage
-   and taxonomy improve.
-3. Whether any third-party artwork, fonts, or visitor analytics meet the Phase 6 publication and
+2. Whether any third-party artwork, fonts, or visitor analytics meet the Phase 6 publication and
    privacy contract; none are required by default.
 
 ## 22. Immediate next step

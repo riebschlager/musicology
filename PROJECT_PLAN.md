@@ -35,7 +35,7 @@ Each task in this plan has one primary outcome, a bounded set of files or compon
 | 3 | Safe incremental Last.fm synchronization | Phase 2 | [Phase 3](docs/project-plan/phase-3-lastfm-sync.md) |
 | 4 | Reproducible initial analytical products | Phase 3 | [Phase 4](docs/project-plan/phase-4-initial-analytics.md) |
 | 5 | Coverage-aware genre enrichment and eras | Phase 4 | [Phase 5](docs/project-plan/phase-5-genre-enrichment.md) |
-| 6 | Narrative-first public microsite over approved static snapshots | Phase 5 core contract; genre lab may be experimental or deferred | [Phase 6](docs/project-plan/phase-6-visualization.md) |
+| 6 | Narrative-first public microsite over approved static snapshots | Phase 5 core contract; genre lab deferred from the initial release | [Phase 6](docs/project-plan/phase-6-visualization.md) |
 
 ## Cross-phase dependency path
 

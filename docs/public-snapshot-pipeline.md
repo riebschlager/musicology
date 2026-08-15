@@ -35,8 +35,9 @@ published month/date bounds. A supersession link is accepted only from a later r
 dormancy conclusion for the same private artist; the closed public artifact also rechecks link
 direction, public chronology, target presence, and matching public artist slugs when both are shown.
 
-P6-04 emits `history.json`, `artists.json`, `editorial.json`, and `stories.json`. `genre-lab.json`
-remains absent until P6-09. The committed full and empty synthetic snapshots under
+P6-04 emits `history.json`, `artists.json`, `editorial.json`, and `stories.json`. P6-09 deferred the
+experimental genre lab from the initial release, so `genre-lab.json` remains absent and the public
+manifest keeps `artifacts.genreLab` null. The committed full and empty synthetic snapshots under
 `tests/fixtures/public-snapshots` contain no private archive data and are suitable for downstream
 site development and deterministic tests.
 

@@ -81,10 +81,11 @@ describe("P6-01 public microsite product specification", () => {
     assert.match(specification, /site\s+will eventually read only the narrower approved public/u);
   });
 
-  it("keeps the experimental genre route conditional and fully qualified", () => {
+  it("records the genre route as deferred and preserves its future activation contract", () => {
     const section = routeSection("/lab/genres/");
     const normalizedSection = section.replace(/\s+/gu, " ");
     for (const disclosure of [
+      "deferred",
       "experimental",
       "musicbrainz",
       "raw",
@@ -96,6 +97,7 @@ describe("P6-01 public microsite product specification", () => {
     ]) {
       assert.ok(normalizedSection.includes(disclosure), `missing genre disclosure ${disclosure}`);
     }
+    assert.match(section, /neither its HTML nor data ships/u);
     assert.match(section, /if deferred, neither its HTML nor\s+data ships/u);
   });
 

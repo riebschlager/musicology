@@ -9,13 +9,17 @@ identity is now wholly manual editorial detail under `public-selection-policy-v2
 resolve against or imply a private analytical track candidate. Artist eligibility, analytical
 evidence, and numerical claims remain bundle-backed.
 
+**P6-09 amendment (2026-08-15):** the experimental genre lab is deferred from the initial release.
+The optional schema remains a dormant boundary for a future version, but initial-release candidates
+and approved snapshots must omit `genre-lab.json` and keep `artifacts.genreLab` null.
+
 ## Decision and dependency evidence
 
 P6-01 is complete at the current branch tip. Its product specification maps every first-release
 route to the stable Phase 4 `analytical-export-v2` bundle or to versioned authored public content.
 Phase 5's recorded fitness status remains **experimental; not fit for an unqualified user-facing
-genre-era view**. This contract therefore defines the optional genre-lab artifact, but P6-09 must
-still activate the route as a whole or omit both its HTML and data.
+genre-era view**. This contract defines an optional genre-lab artifact boundary for possible future
+use; P6-09 chose the valid omission outcome for the initial release.
 
 The implemented state and the plan agree: the site needs no raw source access, new analytical
 query, SQLite connection, hosted service, or event-level data. This decision defines the public
@@ -87,7 +91,7 @@ renaming; “omit” means it is private-only. Any field not listed here is priv
 | Abandonment `lastListenAt`, `lastActivePeriod.startAt/endAt` | Manually selected editorial detail | Reduce to `YYYY-MM` periods. |
 | Abandonment `status/activePeriodCount/formerCadencePlayCount/formerCadencePlaysPer30Days/historicalPlayCount/lastActivePeriod.playCount/observationDays/confidence` | Manually selected editorial detail | Publish only for an approved story and preserve as-of, reversibility, right-censoring, and supersession wording. |
 | Abandonment parameter fields | Public aggregate | Disclose only with the selected story evidence; no unreviewed candidate list is public. |
-| Genre `provider/mode/taxonomyVersion/weightingLevel/contributionVersion/fetchAge/coverage` | Public aggregate | If P6-09 activates the artifact, publish `musicbrainz`, `raw`, taxonomy `null`, artist weighting, freshness date, and usable-event coverage. |
+| Genre `provider/mode/taxonomyVersion/weightingLevel/contributionVersion/fetchAge/coverage` | Public aggregate | After a future explicit activation decision, publish `musicbrainz`, `raw`, taxonomy `null`, artist weighting, freshness date, and usable-event coverage. |
 | Genre `intervals[*].genreId` | Private-only | Replace with a stable reviewed public genre slug; do not expose a provider/internal identifier. |
 | Genre `genreLabel`, interval month bounds, contribution/share/strength/peak` | Public aggregate | Publish only in the experimental artifact after the sparse-group gate and result limits. |
 | Genre interval window evidence and full raw tag/provider payloads | Private-only | Omit. The public lab cannot redistribute provider payloads or expose a tag evidence cache. |
