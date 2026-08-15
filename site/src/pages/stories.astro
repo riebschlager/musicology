@@ -1,0 +1,57 @@
+---
+import DisclosurePanel from "../components/DisclosurePanel.astro";
+import EditorialStory from "../components/EditorialStory.astro";
+import NarrativeSection from "../components/NarrativeSection.astro";
+import PageIntro from "../components/PageIntro.astro";
+import StatePanel from "../components/StatePanel.astro";
+import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure, buildStoryCards } from "../view-models/site.ts";
+
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+const stories = buildStoryCards(snapshot.stories.data.stories);
+---
+
+<BaseLayout
+  canonicalPath="/stories/"
+  currentPath="/stories/"
+  description="Curated stories about music returning or becoming dormant, with analytical evidence kept separate from editorial interpretation."
+  title="Stories"
+>
+  <PageIntro
+    chapter="Side B · Returns"
+    title="Music leaves. Sometimes it finds the way back."
+    dek="These are selected editorial stories, not an automatically ranked feed. Every classification keeps its source gaps, parameters, and as-of limits nearby."
+  />
+
+  <NarrativeSection
+    id="story-kinds"
+    index="01"
+    eyebrow="Two ways of looking back"
+    title="A return is evidence. Dormancy is only an observation."
+    summary="Selected-track identity is wholly manual editorial detail. It never creates track-level analytical evidence or a hidden play history."
+  >
+    {stories.length === 0 ? (
+      <StatePanel
+        kind="empty"
+        headingLevel={3}
+        heading="No reviewed stories"
+        message="No unreviewed analytical candidate is substituted. The methodology still explains how future stories will be qualified."
+      />
+    ) : (
+      <div class="story-grid">
+        {stories.map((story) => (
+          <EditorialStory
+            kind={story.kind}
+            title={story.title}
+            summary={story.summary}
+            trackLabel={story.trackLabel}
+          />
+        ))}
+      </div>
+    )}
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

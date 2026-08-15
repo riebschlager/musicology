@@ -34,8 +34,14 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install pinned Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Run aggregate quality gate
         run: pnpm quality
+
+      - name: Run browser accessibility and visual checks
+        run: pnpm site:test:browser
 
       - name: Migrate empty temporary database
         run: pnpm db:migrate --json

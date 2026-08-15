@@ -70,16 +70,25 @@ fixture build under the pinned toolchain. A major-version change requires the sa
 
 `@astrojs/check` 0.9.10 is not selected for version 1 because its published peer range stops at
 TypeScript 6 while this repository uses TypeScript 7. The project will not suppress that peer
-conflict or downgrade the repository compiler in P6-03. Astro documents that `astro build`
-transpiles but does not type-check `.astro` files, and `tsc` ignores those files. Build success and
-built-output browser tests are therefore not substitutes for an Astro diagnostic gate.
+conflict or downgrade the repository compiler. Astro documents that `astro build` transpiles but
+does not type-check `.astro` files, and `tsc` ignores those files.
 
-P6-05 must not add `.astro` source until an exact-pinned Astro checker declares compatibility with
-the repository's pinned TypeScript version. Once one does, P6-05 must add `astro check` to the
-required quality gate before `astro build` and prove with a deliberately invalid deterministic
-fixture that the check fails. Site `.ts` and `.tsx` logic remains under the existing strict `tsc`
-gate. If no compatible checker exists when P6-05 begins, implementation stops for a decision update
-rather than weakening strict TypeScript, suppressing the peer conflict, or relying on build success.
+**P6-05 amendment (2026-08-15):** the earlier prohibition on adding `.astro` source without a
+compatible `astro check` release is removed so the static shell is not indefinitely coupled to an
+upstream peer-range update. Until an exact-pinned checker officially supports the repository's
+TypeScript version, the required local gate is strict `tsc` over all site `.ts`/`.tsx` logic,
+deterministic adapter and view-model tests, an Astro production build, and built-HTML assertions for
+every route template and shared accessibility/privacy contract. Astro components remain thin:
+boundary validation, state parsing, disclosure shaping, and other behavioral logic belong in typed
+modules rather than frontmatter. Adding a compatible `astro check` command remains a future
+toolchain improvement, not a prerequisite for P6-05 completion.
+
+This accepts a narrow diagnostic gap for template-only expressions. The alternatives were to wait
+for an unspecified checker release, suppress an unsupported peer dependency, or downgrade the
+repository compiler; all were rejected because they either block the planned site or weaken the
+established package/toolchain contract more broadly. Production builds and built-output tests do
+not become general substitutes for type checking; they are the scoped fallback only for `.astro`
+templates while the supported checker is unavailable.
 
 References used for the decision:
 
@@ -254,10 +263,12 @@ Testing is layered around the trust boundaries:
    Private archive records never become fixtures, snapshots, screenshots, or CI output.
 
 Once the site exists, the normal quality gate includes formatting, linting, strict `tsc` for site
-`.ts`/`.tsx`, the required compatible `astro check` diagnostic for `.astro`, site unit/component
-tests, Astro's production build, and built-artifact privacy and byte-budget checks. Browser binaries
-are separately pinned by Playwright; the critical browser suite is required in CI for site changes
-and before publication rather than silently skipped when a developer has no local browser installed.
+`.ts`/`.tsx`, site unit/component tests, Astro's production build, built-HTML assertions for every
+route template, and built-artifact privacy and byte-budget checks. Add an exact-pinned `astro check`
+diagnostic when its published TypeScript peer range includes the repository compiler. Browser
+binaries are separately pinned by Playwright; the critical browser suite is required in CI for site
+changes and before publication rather than silently skipped when a developer has no local browser
+installed.
 
 ## Accessibility automation and manual review
 

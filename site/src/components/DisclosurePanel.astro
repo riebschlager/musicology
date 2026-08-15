@@ -1,0 +1,61 @@
+---
+import type { AnalyticalDisclosure } from "../view-models/site.ts";
+
+interface Props {
+  readonly disclosure: AnalyticalDisclosure;
+  readonly id?: string;
+}
+
+const { disclosure, id = "analytical-envelope" } = Astro.props;
+---
+
+<aside class="disclosure-panel" id={id} aria-labelledby={`${id}-title`}>
+  <div class="disclosure-panel__heading">
+    <p class="eyebrow">How to read this evidence</p>
+    <h2 id={`${id}-title`}>The analytical envelope</h2>
+    <p>Definitions and limitations travel with the view, not in a distant footnote.</p>
+  </div>
+  <dl>
+    <div>
+      <dt>Metric</dt>
+      <dd>{disclosure.metricDefinition}</dd>
+    </div>
+    <div>
+      <dt>Spotify-only duration</dt>
+      <dd>{disclosure.durationScope}</dd>
+    </div>
+    <div>
+      <dt>Source gaps</dt>
+      <dd>{disclosure.sourceGapSummary}</dd>
+    </div>
+    <div>
+      <dt>Unresolved proportion</dt>
+      <dd>{disclosure.unresolvedSummary}</dd>
+    </div>
+    <div>
+      <dt>Genre coverage & freshness</dt>
+      <dd>{disclosure.genreStatus}</dd>
+    </div>
+    <div>
+      <dt>Parameters</dt>
+      <dd>
+        <ul>
+          {disclosure.parameters.map((parameter) => (
+            <li><strong>{parameter.label}:</strong> {parameter.value}</li>
+          ))}
+        </ul>
+      </dd>
+    </div>
+    <div>
+      <dt>Time & release</dt>
+      <dd>
+        Timezone: {disclosure.timezone}. As of: {disclosure.asOfLabel}. Publication: {disclosure.publicationLabel}.
+      </dd>
+    </div>
+    <div>
+      <dt>Analytical versions</dt>
+      <dd>{disclosure.versionSummary}</dd>
+    </div>
+  </dl>
+  <p class="disclosure-panel__link"><a href="/methodology/">Read the full methodology</a></p>
+</aside>

@@ -1,0 +1,21 @@
+---
+interface Props {
+  readonly description: string;
+  readonly tableId: string;
+  readonly title: string;
+}
+
+const { description, tableId, title } = Astro.props;
+---
+
+<figure class="chart-frame" aria-labelledby={`${tableId}-chart-title`}>
+  <figcaption>
+    <p class="eyebrow">Visual evidence</p>
+    <h3 id={`${tableId}-chart-title`}>{title}</h3>
+    <p>{description}</p>
+    <a href={`#${tableId}`}>Skip to the equivalent data table</a>
+  </figcaption>
+  <div class="chart-frame__canvas">
+    <slot />
+  </div>
+</figure>

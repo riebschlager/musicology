@@ -1,0 +1,107 @@
+---
+import DataTable from "../components/DataTable.astro";
+import DisclosurePanel from "../components/DisclosurePanel.astro";
+import NarrativeSection from "../components/NarrativeSection.astro";
+import PageIntro from "../components/PageIntro.astro";
+import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure } from "../view-models/site.ts";
+
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+const definitions = [
+  [
+    "Canonical play count",
+    "Every canonical track event once",
+    "Full retained history",
+    "Source gaps and unresolved proportion",
+  ],
+  [
+    "Listened duration",
+    "Observed milliseconds",
+    "Spotify-backed events only",
+    "Never extrapolated to Last.fm-only history",
+  ],
+  [
+    "Artist era",
+    "A parameterized interval signal",
+    "Eligible public artists",
+    "Overlaps, sparse windows, and baseline dependence",
+  ],
+  [
+    "Rediscovery",
+    "A return after a configured absence",
+    "Reviewed selected stories",
+    "Coverage gaps can resemble absence",
+  ],
+  [
+    "Dormancy",
+    "A reversible as-of observation",
+    "Reviewed selected stories",
+    "Right-censoring and later return",
+  ],
+] as const;
+---
+
+<BaseLayout
+  canonicalPath="/methodology/"
+  currentPath="/methodology/"
+  description="Definitions, source coverage, uncertainty, parameters, privacy review, and publication limits for Musicology."
+  title="Methodology"
+>
+  <PageIntro
+    chapter="Sleeve notes · Method"
+    title="How the listening atlas earns its claims."
+    dek="The measures are reproducible; their limits are part of the result. This page explains what is counted, what stays private, and what remains unknown."
+  />
+
+  <NarrativeSection
+    id="definitions"
+    index="01"
+    eyebrow="Definition register"
+    title="Similar-looking measures do not share the same coverage."
+    summary="Play count can span the reconciled history. Duration cannot. Artist eras, rediscovery, and dormancy are parameterized conclusions rather than permanent facts."
+  >
+    <DataTable
+      id="methodology-definition-table"
+      caption="Public analytical definition register"
+      headers={["Measure", "Definition", "Source scope", "Known limitation"]}
+      rows={definitions}
+    />
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="artist-eras"
+    index="02"
+    eyebrow="Signals, not labels"
+    title="Artist eras overlap and depend on parameters."
+    summary="Activity, rolling activity, listening share, rank, continuity, and change from an earlier baseline contribute to the signal. Publication eligibility is a separate privacy threshold."
+  >
+    <p>
+      An eligible page means an artist crossed a documented public significance gate in this
+      snapshot. It does not mean excluded artists were unimportant, and the browser never receives
+      the suppressed tail.
+    </p>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="privacy"
+    index="03"
+    eyebrow="Publication boundary"
+    title="The site is built from a reviewed projection, never the private archive."
+    summary="No individual listening events, database, private analytical bundle, secret, provider payload, hidden long tail, visitor analytics, or runtime third-party request is shipped."
+  >
+    <div class="definition-grid">
+      <article class="definition-card">
+        <h3>Static by design</h3>
+        <p>Pages are generated ahead of time from one validated snapshot. There is no hosted query service or visitor account.</p>
+      </article>
+      <article class="definition-card">
+        <h3>Editorial detail is reviewed</h3>
+        <p>Selected track identity is manual story detail. It cannot create a track metric, return classification, or play log.</p>
+      </article>
+    </div>
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} id="current-envelope" />
+</BaseLayout>

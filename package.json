@@ -31,22 +31,40 @@
     "import:lastfm-export": "node --env-file-if-exists=.env src/cli/import-lastfm-export.ts",
     "import:spotify": "node --env-file-if-exists=.env src/cli/import-spotify.ts",
     "lint": "biome lint .",
-    "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "quality": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run site:typecheck && pnpm run test && pnpm run site:test && pnpm run build && pnpm run site:build:fixture && pnpm run site:verify && pnpm run site:build:empty && pnpm run site:verify",
     "report:coverage": "node --env-file-if-exists=.env src/cli/report-coverage.ts",
     "reconcile": "node --env-file-if-exists=.env src/cli/reconcile.ts",
     "review:decisions": "node --env-file-if-exists=.env src/cli/review-decisions.ts",
+    "site:build": "astro build --config site/astro.config.ts",
+    "site:build:empty": "MUSICOLOGY_SITE_FIXTURE=empty astro build --config site/astro.config.ts",
+    "site:build:fixture": "MUSICOLOGY_SITE_FIXTURE=full astro build --config site/astro.config.ts",
+    "site:dev": "MUSICOLOGY_SITE_FIXTURE=full astro dev --config site/astro.config.ts",
+    "site:serve": "node site/scripts/serve-built-site.ts",
+    "site:test": "vitest run --config site/vitest.config.ts",
+    "site:test:browser": "playwright test --config site/playwright.config.ts",
+    "site:typecheck": "tsc --project site/tsconfig.json --noEmit",
+    "site:verify": "node site/scripts/verify-built-site.ts",
     "sync:lastfm": "node --env-file-if-exists=.env src/cli/sync-lastfm.ts",
     "test": "node --test \"tests/**/*.test.ts\"",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "validate": "node --env-file-if-exists=.env src/cli/validate.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@biomejs/biome": "2.5.4",
+    "@playwright/test": "1.62.1",
+    "@testing-library/preact": "3.2.4",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "24.13.3",
-    "typescript": "7.0.2"
+    "jsdom": "30.0.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
   },
   "dependencies": {
-    "better-sqlite3": "12.11.1"
+    "@astrojs/preact": "6.0.2",
+    "@observablehq/plot": "0.6.17",
+    "astro": "7.2.0",
+    "better-sqlite3": "12.11.1",
+    "preact": "10.29.8"
   }
 }

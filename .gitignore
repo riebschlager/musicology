@@ -32,6 +32,9 @@ manual-review-decisions.json
 dist/
 build/
 coverage/
+.astro/
+playwright-report/
+test-results/
 *.log
 *.tmp
 *.temp

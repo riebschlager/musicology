@@ -51,22 +51,26 @@ describe("P6-03 static web and visualization stack decision", () => {
     assert.match(decision, /deliberately adds no site dependency,\ncommand, route, workflow/u);
   });
 
-  it("fails closed until Astro components have a compatible type-check gate", () => {
+  it("records the scoped P6-05 diagnostic fallback until Astro check supports TypeScript 7", () => {
     assert.match(
       decision,
-      /`astro build`\ntranspiles but does not type-check `.astro` files, and `tsc` ignores those files/u,
+      /`astro build` transpiles but\ndoes not type-check `.astro` files, and `tsc` ignores those files/u,
     );
     assert.match(
       decision,
-      /P6-05 must not add `.astro` source until an exact-pinned Astro checker/u,
+      /P6-05 amendment \(2026-08-15\).*prohibition on adding `.astro` source without a\ncompatible `astro check` release is removed/su,
     );
     assert.match(
       decision,
-      /add `astro check` to the\nrequired quality gate before `astro build` and prove with a deliberately invalid deterministic\nfixture that the check fails/u,
+      /strict `tsc` over all site `.ts`\/`.tsx` logic,\ndeterministic adapter and view-model tests, an Astro production build, and built-HTML assertions/u,
     );
     assert.match(
       decision,
-      /implementation stops for a decision update\nrather than weakening strict TypeScript/u,
+      /will not suppress that peer\nconflict or downgrade the repository compiler/u,
+    );
+    assert.match(
+      decision,
+      /Adding a compatible `astro check` command remains a future\ntoolchain improvement/u,
     );
   });
 

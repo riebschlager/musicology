@@ -1,0 +1,18 @@
+---
+interface Props {
+  readonly label?: string;
+  readonly text: string;
+  readonly title: string;
+}
+
+const { label = "Listening note", text, title } = Astro.props;
+---
+
+<aside class="annotation" aria-label={`${label}: ${title}`}>
+  <span class="annotation__pin" aria-hidden="true">✦</span>
+  <div>
+    <p class="eyebrow">{label}</p>
+    <h3>{title}</h3>
+    <p>{text}</p>
+  </div>
+</aside>

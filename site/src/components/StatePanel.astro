@@ -1,0 +1,24 @@
+---
+interface Props {
+  readonly heading: string;
+  readonly headingLevel?: 2 | 3;
+  readonly kind: "empty" | "error" | "loading";
+  readonly message: string;
+}
+
+const { heading, headingLevel = 2, kind, message } = Astro.props;
+const symbols = { empty: "○", error: "!", loading: "…" } as const;
+const Heading = `h${headingLevel}` as "h2" | "h3";
+---
+
+<section
+  class={`state-panel state-panel--${kind}`}
+  aria-live={kind === "loading" ? "polite" : undefined}
+  role={kind === "error" ? "alert" : "status"}
+>
+  <span aria-hidden="true">{symbols[kind]}</span>
+  <div>
+    <Heading>{heading}</Heading>
+    <p>{message}</p>
+  </div>
+</section>

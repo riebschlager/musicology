@@ -17,7 +17,9 @@ describe("foundation developer workflow", () => {
     assert.match(workflow, /node-version-file: \.node-version/);
     assert.match(workflow, /corepack install/);
     assert.match(workflow, /pnpm install --frozen-lockfile/);
+    assert.match(workflow, /pnpm exec playwright install --with-deps chromium/);
     assert.match(workflow, /run: pnpm quality/);
+    assert.match(workflow, /run: pnpm site:test:browser/);
     assert.match(workflow, /run: pnpm db:migrate --json/);
     assert.match(workflow, /run: pnpm db:status --json/);
   });

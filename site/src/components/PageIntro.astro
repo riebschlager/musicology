@@ -1,0 +1,18 @@
+---
+interface Props {
+  readonly chapter: string;
+  readonly dek: string;
+  readonly title: string;
+}
+
+const { chapter, dek, title } = Astro.props;
+---
+
+<header class="page-intro">
+  <p class="eyebrow">{chapter}</p>
+  <h1>{title}</h1>
+  <p class="page-intro__dek">{dek}</p>
+  <div class="page-intro__rule" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+</header>

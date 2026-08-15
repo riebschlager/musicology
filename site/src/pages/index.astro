@@ -1,0 +1,109 @@
+---
+import Annotation from "../components/Annotation.astro";
+import DisclosurePanel from "../components/DisclosurePanel.astro";
+import NarrativeSection from "../components/NarrativeSection.astro";
+import PageIntro from "../components/PageIntro.astro";
+import StatePanel from "../components/StatePanel.astro";
+import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure, formatMonthRange, formatNumber } from "../view-models/site.ts";
+
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+const range = snapshot.manifest.coverage.dateRange;
+const firstAnnotation = snapshot.editorial.data.annotations[0];
+---
+
+<BaseLayout
+  canonicalPath="/"
+  currentPath="/"
+  description="A long-form personal music history with an analytical explorer, built from a privacy-reviewed public snapshot."
+  title="Musicology"
+>
+  <PageIntro
+    chapter="Side A · The long view"
+    title="A life heard in seasons, gaps, and returns."
+    dek="More than a ranking and less certain than memory: this is one listening history read as evidence, with the missing parts left visible."
+  />
+
+  {snapshot.manifest.coverage.canonicalEventCount === 0 ? (
+    <StatePanel
+      kind="empty"
+      heading="No reviewed history is available"
+      message="The publication structure and methodology remain readable, but this snapshot contains no approved listening aggregates."
+    />
+  ) : (
+    <dl class="metric-strip" aria-label="Reviewed record at a glance">
+      <div>
+        <dt>Canonical plays</dt>
+        <dd>{formatNumber(snapshot.manifest.coverage.canonicalEventCount)}</dd>
+      </div>
+      <div>
+        <dt>Retained span</dt>
+        <dd>{range ? formatMonthRange(range.startPeriod, range.endPeriodExclusive) : "Unknown"}</dd>
+      </div>
+      <div>
+        <dt>Public artists</dt>
+        <dd>{formatNumber(snapshot.artists.data.artists.length)}</dd>
+      </div>
+    </dl>
+  )}
+
+  <NarrativeSection
+    id="record"
+    index="01"
+    eyebrow="Evidence before certainty"
+    title="The record begins before it becomes complete."
+    summary="Last.fm and Spotify illuminate different stretches of the archive. Sparse evidence and source gaps are part of the shape, not cleanup to hide."
+  >
+    <p>
+      Full-history play count uses every canonical track event once. Spotify-backed duration is a
+      narrower measure and never stands in for the years that only another source can describe.
+    </p>
+    {firstAnnotation && (
+      <Annotation
+        label="Reviewed annotation"
+        title={firstAnnotation.title}
+        text={firstAnnotation.accessibilitySummary}
+      />
+    )}
+    <p><a href="/history/">Read the history and coverage together</a></p>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="seasons"
+    index="02"
+    eyebrow="Overlapping signals"
+    title="Artists arrive in seasons, not neat chapters."
+    summary="An era is a parameterized signal made from activity, share, rank, continuity, and change from an earlier baseline—not a permanent label."
+  >
+    <div class="route-grid">
+      <article class="route-card">
+        <h3>Eligible artist signals</h3>
+        <p>Explore only the bounded public cohort; the suppressed long tail never reaches the browser.</p>
+        <a href="/artists/">Open the artist index</a>
+      </article>
+      <article class="route-card">
+        <h3>Returns and dormancy</h3>
+        <p>Read selected stories with qualifications about gaps, persistence, observation, and reversibility.</p>
+        <a href="/stories/">Follow the story index</a>
+      </article>
+    </div>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="inspect"
+    index="03"
+    eyebrow="Take the evidence apart"
+    title="The story stays readable when the controls disappear."
+    summary="Default summaries, definitions, tables, and navigation are static HTML. Optional interaction can refine an approved view, never unlock private data."
+  >
+    <p>
+      Use the explorer for a bounded state, or go straight to the methodology for definitions and
+      publication limits. Both remain useful with JavaScript disabled.
+    </p>
+    <p><a href="/explore/">Open the bounded explorer</a> · <a href="/methodology/">Inspect the method</a></p>
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

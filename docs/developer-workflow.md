@@ -131,8 +131,10 @@ pnpm quality
 ```
 
 This is the authoritative aggregate command. It runs formatting and lint checks, strict TypeScript
-checking, all unit and integration tests, and a production build. The database integration tests
-apply migrations to temporary empty databases and run SQLite integrity and foreign-key checks.
+checking for the data pipeline and typed site logic, all unit and integration tests, the TypeScript
+production build, deterministic full and empty static-site fixture builds, and built-site privacy,
+metadata, and byte-budget verification. The database integration tests apply migrations to
+temporary empty databases and run SQLite integrity and foreign-key checks.
 
 Individual entry points are available while iterating:
 
@@ -143,6 +145,43 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
+
+## Develop and verify the public microsite shell
+
+The normal development server and fixture builds consume only the committed deterministic public
+snapshot. They do not read the private database, private analytical bundle, or `data/inputs`:
+
+```sh
+pnpm site:dev
+pnpm site:typecheck
+pnpm site:test
+pnpm site:build:fixture
+pnpm site:verify
+```
+
+Use `pnpm site:build:empty` followed by `pnpm site:verify` to verify the no-history state.
+`site:verify` detects whether the current built fixture has history and checks the corresponding
+chart/table or empty-state contract. Generated `site/dist` and `site/.astro` files are ignored.
+
+The browser suite builds the full fixture and checks the route shell in desktop and mobile Chromium,
+including automated accessibility, keyboard navigation, 320-pixel reflow, reduced motion,
+JavaScript-disabled reading, URL-state bounds, and unexpected network requests:
+
+```sh
+pnpm exec playwright install chromium
+pnpm site:test:browser
+```
+
+Playwright browser binaries are a separately installed local/CI prerequisite and are not committed.
+CI installs pinned Chromium and runs this browser suite after the aggregate quality gate.
+`pnpm site:build` is intentionally different from the fixture commands: it fails closed unless
+`data/publication/active.json` identifies a complete approved snapshot. Candidate fixtures can never
+satisfy that production boundary. The approval and deployment commands remain P6-10 work.
+
+Astro's separate checker is not installed while its official peer range excludes the repository's
+TypeScript 7 compiler. The temporary diagnostic gate and the reason for retaining `.astro` source
+are recorded in
+[`phase-6-static-web-visualization-stack.md`](decisions/phase-6-static-web-visualization-stack.md).
 
 Before handing off a database-related change, run `pnpm quality`, migrate a fresh temporary database,
 run `db:status`, and run `validate` against that same database. This mirrors the database checks used

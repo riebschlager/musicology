@@ -1,0 +1,53 @@
+---
+import DisclosurePanel from "../components/DisclosurePanel.astro";
+import NarrativeSection from "../components/NarrativeSection.astro";
+import PageIntro from "../components/PageIntro.astro";
+import StatePanel from "../components/StatePanel.astro";
+import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure, formatNumber } from "../view-models/site.ts";
+
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+const artistCount = snapshot.artists.data.artists.length;
+---
+
+<BaseLayout
+  canonicalPath="/artists/"
+  currentPath="/artists/"
+  description="Explore a bounded public cohort of artist-era signals without exposing the private listening long tail."
+  title="Artists"
+>
+  <PageIntro
+    chapter="Index · Artist seasons"
+    title="No single artist owns the whole timeline."
+    dek="Artist eras are overlapping analytical signals. Eligibility limits what becomes public; it is not a judgment about musical importance."
+  />
+
+  <NarrativeSection
+    id="artist-cohort"
+    index="01"
+    eyebrow="A bounded public cohort"
+    title={`${formatNumber(artistCount)} eligible ${artistCount === 1 ? "artist" : "artists"} in this snapshot.`}
+    summary="Only artists admitted by the reviewed significance policy can appear here. An unsupported name or slug cannot broaden the public set."
+  >
+    {artistCount === 0 ? (
+      <StatePanel
+        kind="empty"
+        headingLevel={3}
+        heading="No public artist signals"
+        message="The snapshot contains no artist interval that passed the publication threshold. No suppressed name or count is revealed."
+      />
+    ) : (
+      <StatePanel
+        kind="loading"
+        headingLevel={3}
+        heading="The public cohort is ready"
+        message="The static shell has validated the eligible set. The artist-era journey will add its timeline, comparison, and exact table without changing this privacy boundary."
+      />
+    )}
+    <p><a href="/methodology/#artist-eras">How artist-era signals and eligibility differ</a></p>
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

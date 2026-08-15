@@ -1,0 +1,24 @@
+---
+import PageIntro from "../components/PageIntro.astro";
+import StatePanel from "../components/StatePanel.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  canonicalPath="/404.html"
+  currentPath="/404.html"
+  description="The requested public Musicology page was not found."
+  title="Page not found"
+>
+  <PageIntro
+    chapter="Runout groove · 404"
+    title="This part of the record is not public."
+    dek="The address may be mistyped, withdrawn, or outside the approved public snapshot. This page does not confirm whether a private artist or story exists."
+  />
+  <StatePanel
+    kind="error"
+    heading="Page not found"
+    message="Return to the long view or use the public navigation. Unknown and ineligible routes share this same response."
+  />
+  <p class="not-found-link"><a href="/">Return to the long view</a></p>
+</BaseLayout>
