@@ -216,6 +216,7 @@ export function approvePublicCandidate(
   candidateDirectory: string,
   publicationDirectory: string,
   decidedOn: string,
+  reviewedReportSha256: string,
   fileSystem: PublicationFileSystem = nodeFileSystem,
 ): string {
   validateOperationalDate(decidedOn, "Approval date");
@@ -224,6 +225,12 @@ export function approvePublicCandidate(
     throw new PublicationWorkflowError(
       "candidate_invalid",
       "Only a candidate snapshot can be approved",
+    );
+  }
+  if (candidate.manifest.reportSha256 !== reviewedReportSha256) {
+    throw new PublicationWorkflowError(
+      "candidate_invalid",
+      "The confirmed review report hash does not match the candidate",
     );
   }
   const approvedDirectory = path.join(

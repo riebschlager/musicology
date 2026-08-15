@@ -239,7 +239,7 @@ export function loadSiteSnapshot(options: SiteSnapshotOptions = {}): SiteSnapsho
       );
     }
 
-    const publicationDirectory = path.join(projectRoot, "data", "publication");
+    const publicationDirectory = resolvePublicationDirectory(projectRoot);
     const pointer = readActivePublicSnapshot(publicationDirectory);
     const stored = readStoredPublicSnapshot(
       path.join(publicationDirectory, "approved", pointer.snapshotId),
@@ -256,6 +256,17 @@ export function loadSiteSnapshot(options: SiteSnapshotOptions = {}): SiteSnapsho
       { cause: error },
     );
   }
+}
+
+function resolvePublicationDirectory(projectRoot: string): string {
+  const configured = process.env.MUSICOLOGY_PUBLICATION_DIR;
+  if (configured === undefined) return path.join(projectRoot, "data", "publication");
+  if (configured.trim() === "" || configured.includes("\0")) {
+    throw new SiteSnapshotError("snapshot_invalid", "Public snapshot configuration is invalid");
+  }
+  return path.isAbsolute(configured)
+    ? path.normalize(configured)
+    : path.resolve(projectRoot, configured);
 }
 
 function toSiteSnapshot(stored: StoredPublicSnapshot): SiteSnapshot {

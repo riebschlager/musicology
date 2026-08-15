@@ -10,6 +10,7 @@ export const CONFIGURATION_VARIABLES = {
   lastfmApiKey: "LASTFM_API_KEY",
   lastfmUsername: "LASTFM_USERNAME",
   outputsDirectory: "MUSICOLOGY_OUTPUTS_DIR",
+  publicationDirectory: "MUSICOLOGY_PUBLICATION_DIR",
   presentationTimezone: "MUSICOLOGY_TIMEZONE",
 } as const;
 
@@ -18,6 +19,7 @@ export interface DataPaths {
   readonly databasePath: string;
   readonly inputsDirectory: string;
   readonly outputsDirectory: string;
+  readonly publicationDirectory: string;
 }
 
 export interface LastfmConfiguration {
@@ -159,6 +161,13 @@ export function loadConfiguration(options: LoadConfigurationOptions = {}): Proje
       environment[CONFIGURATION_VARIABLES.outputsDirectory],
     ) ?? path.join(dataDirectory, "outputs"),
   );
+  const publicationDirectory = resolveConfiguredPath(
+    root,
+    validatePathOverride(
+      CONFIGURATION_VARIABLES.publicationDirectory,
+      environment[CONFIGURATION_VARIABLES.publicationDirectory],
+    ) ?? "data/publication",
+  );
 
   const username = readOptionalLastfmValue(environment, CONFIGURATION_VARIABLES.lastfmUsername);
   const apiKey = readOptionalLastfmValue(environment, CONFIGURATION_VARIABLES.lastfmApiKey);
@@ -169,6 +178,7 @@ export function loadConfiguration(options: LoadConfigurationOptions = {}): Proje
       databasePath,
       inputsDirectory,
       outputsDirectory,
+      publicationDirectory,
     },
     presentationTimezone: validateTimezone(
       environment[CONFIGURATION_VARIABLES.presentationTimezone] ?? DEFAULT_PRESENTATION_TIMEZONE,

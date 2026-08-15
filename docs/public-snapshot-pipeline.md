@@ -1,8 +1,10 @@
 # Public snapshot pipeline
 
 P6-04 implements the local private-to-public boundary as project-owned TypeScript modules under
-`src/publication`. It does not add a command-line release workflow; P6-10 owns the stable generation,
-review, approval, and site-build commands.
+`src/publication`. P6-10 exposes that boundary through separate `publication:generate`,
+`publication:review`, `publication:approve`, and `publication:activate` commands. The complete
+owner workflow, production build, protected deployment, and rollback procedure is documented in
+[`publication-release.md`](publication-release.md).
 
 ## Inputs and projection boundary
 

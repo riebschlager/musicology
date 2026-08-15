@@ -1,14 +1,19 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
-
-import { type SiteSnapshotError, loadSiteSnapshot } from "../src/adapters/public-snapshot.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  activateApprovedPublicSnapshot,
+  approvePublicCandidate,
+  readStoredPublicSnapshot,
+} from "../../src/publication/workflow.ts";
+import { loadSiteSnapshot, type SiteSnapshotError } from "../src/adapters/public-snapshot.ts";
 
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { force: true, recursive: true });
   }
@@ -64,5 +69,34 @@ describe("build-only public snapshot adapter", () => {
     expect(() => loadSiteSnapshot({ projectRoot: root })).toThrowError(
       expect.objectContaining<Partial<SiteSnapshotError>>({ code: "snapshot_missing" }),
     );
+  });
+
+  it("loads a retained approved snapshot from committed-style files without private inputs", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "musicology-site-approved-"));
+    temporaryDirectories.push(root);
+    const publicationDirectory = path.join(root, "public-release");
+    const fixtureDirectory = path.join(
+      process.cwd(),
+      "tests",
+      "fixtures",
+      "public-snapshots",
+      "full",
+    );
+    const approvedDirectory = approvePublicCandidate(
+      fixtureDirectory,
+      publicationDirectory,
+      "2026-08-15",
+      readStoredPublicSnapshot(fixtureDirectory).manifest.reportSha256,
+    );
+    activateApprovedPublicSnapshot(publicationDirectory, "snapshot-2026-08-09-fixture");
+    vi.stubEnv("MUSICOLOGY_PUBLICATION_DIR", publicationDirectory);
+
+    const snapshot = loadSiteSnapshot({ projectRoot: root });
+    expect(snapshot.manifest.state).toBe("approved");
+    expect(snapshot.history.data.totalPlayCount).toBe(50);
+    expect(readdirSync(root, { recursive: true }).map(String)).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/\.(?:db|sqlite|sqlite3)$/u)]),
+    );
+    expect(approvedDirectory).toContain("public-release/approved/");
   });
 });

@@ -197,7 +197,10 @@ docker run --rm --ipc=host --platform linux/amd64 \
 Review every changed PNG, then rerun the same container command without `--update-snapshots`.
 `pnpm site:build` is intentionally different from the fixture commands: it fails closed unless
 `data/publication/active.json` identifies a complete approved snapshot. Candidate fixtures can never
-satisfy that production boundary. The approval and deployment commands remain P6-10 work.
+satisfy that production boundary. Use `pnpm publication:build` for the production build plus
+built-artifact verification. Candidate generation, report review, hash-confirmed approval,
+activation/rollback, protected GitHub Pages deployment, live verification, DNS, and HTTPS setup are
+documented in [`publication-release.md`](publication-release.md).
 
 Astro's separate checker is not installed while its official peer range excludes the repository's
 TypeScript 7 compiler. The temporary diagnostic gate and the reason for retaining `.astro` source

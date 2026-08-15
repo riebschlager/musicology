@@ -13,6 +13,7 @@ not redirect private inputs or generated output accidentally.
 | `MUSICOLOGY_INPUTS_DIR` | `<data>/inputs` | Immutable private source files |
 | `MUSICOLOGY_DATABASE_PATH` | `<data>/database/musicology.sqlite3` | Generated SQLite database |
 | `MUSICOLOGY_OUTPUTS_DIR` | `<data>/outputs` | Generated reports and exchange files |
+| `MUSICOLOGY_PUBLICATION_DIR` | `data/publication` | Approved public snapshots and the active pointer |
 | `LASTFM_USERNAME` | unset | Optional Last.fm account for `sync:lastfm` synchronization |
 | `LASTFM_API_KEY` | unset | Optional Last.fm API secret for `sync:lastfm` synchronization |
 
@@ -22,9 +23,12 @@ the shell environment take precedence over `.env` values, and a missing `.env` i
 Invoking a CLI entry point with `node` directly requires passing the flag yourself.
 
 Relative path overrides are resolved from the repository root. Absolute overrides remain absolute.
-Changing `MUSICOLOGY_DATA_DIR` also moves the three default child paths; an explicit child override
-takes precedence. The loader validates timezones, paths, and configured Last.fm values before a
-command performs work. Error messages identify the variable but never repeat its supplied value.
+Changing `MUSICOLOGY_DATA_DIR` also moves the three private-data child paths; an explicit child
+override takes precedence. The public publication directory remains repository-local by default so
+approved files are committable. Publication commands, production site builds, and live verification
+all honor an explicit `MUSICOLOGY_PUBLICATION_DIR` override. The loader validates timezones, paths,
+and configured Last.fm values before a command performs work. Error messages identify the variable
+but never repeat its supplied value.
 
 Last.fm values are optional at the project level because most commands do not use the API.
 `sync:lastfm` requires both values at its own boundary. Commands must pass configured Last.fm

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 
@@ -44,6 +44,15 @@ const clientJavaScript = listFiles(root)
   .filter((file) => file.endsWith(".js"))
   .map((file) => readFileSync(file))
   .reduce((total, bytes) => total + gzipSync(bytes).length, 0);
+const hashedAssets = listFiles(path.join(root, "_astro")).filter((file) =>
+  /[\\/][a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]{8,}\.(?:css|js)$/u.test(file),
+);
+assert.ok(hashedAssets.length > 0, "Cache-addressed static assets are required");
+assert.equal(
+  readFileSync(path.join(root, "CNAME"), "utf8"),
+  "music.the816.com\n",
+  "The built custom-domain marker must remain canonical",
+);
 assert.match(css, /prefers-reduced-motion:reduce/u);
 assert.match(css, /forced-colors:active/u);
 assert.match(css, /width<=44rem/u);
@@ -57,6 +66,11 @@ for (const [relativeFile, analytical, interactive] of routes) {
   assert.match(html, /<title>[^<]+<\/title>/u);
   assert.match(html, /<link rel="canonical" href="https:\/\/music\.the816\.com\//u);
   assert.match(html, /<meta property="og:title"/u);
+  assert.match(
+    html,
+    /<meta name="musicology:snapshot-id" content="snapshot-\d{4}-\d{2}-\d{2}-[a-z0-9-]+">/u,
+  );
+  assert.match(html, /<meta name="musicology:snapshot-sha256" content="[a-f0-9]{64}">/u);
   assert.match(html, /<a class="skip-link" href="#main-content">/u);
   assert.match(html, /<nav class="site-nav" aria-label="Primary">/u);
   assert.match(html, /<main id="main-content" tabindex="-1">/u);

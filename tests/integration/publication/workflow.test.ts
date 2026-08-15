@@ -263,7 +263,12 @@ describe("P6-04 publication candidate, approval, and rollback workflow", () => {
       );
       assert.throws(
         () =>
-          approvePublicCandidate(candidateDirectory, path.join(root, "publication"), approvedOn),
+          approvePublicCandidate(
+            candidateDirectory,
+            path.join(root, "publication"),
+            approvedOn,
+            candidate.manifest.reportSha256,
+          ),
         (error: unknown) =>
           error instanceof PublicationWorkflowError && error.code === "snapshot_invalid",
       );
@@ -274,6 +279,7 @@ describe("P6-04 publication candidate, approval, and rollback workflow", () => {
         candidateDirectory,
         publicationDirectory,
         approvedOn,
+        candidate.manifest.reportSha256,
       );
       const approved = readStoredPublicSnapshot(approvedDirectory);
       assert.equal(approved.manifest.state, "approved");
@@ -289,10 +295,43 @@ describe("P6-04 publication candidate, approval, and rollback workflow", () => {
       );
       assert.equal(existsSync(path.join(approvedDirectory, PUBLIC_APPROVAL_FILE)), true);
       assert.throws(
-        () => approvePublicCandidate(candidateDirectory, publicationDirectory, approvedOn),
+        () =>
+          approvePublicCandidate(
+            candidateDirectory,
+            publicationDirectory,
+            approvedOn,
+            candidate.manifest.reportSha256,
+          ),
         (error: unknown) =>
           error instanceof PublicationWorkflowError && error.code === "approval_conflict",
       );
+    });
+  });
+
+  it("rejects a valid candidate replacement created after the report was reviewed", () => {
+    withWorkspace((root) => {
+      const candidatesDirectory = path.join(root, "candidates");
+      const publicationDirectory = path.join(root, "publication");
+      const { candidate, projected } = buildFixtureCandidate(root);
+      const candidateDirectory = writePublicCandidate(candidatesDirectory, candidate);
+      const reviewedReportSha256 = candidate.manifest.reportSha256;
+
+      const replacement = buildPublicCandidate(projected, "2026-08-11");
+      assert.notEqual(replacement.manifest.reportSha256, reviewedReportSha256);
+      writePublicCandidate(candidatesDirectory, replacement);
+
+      assert.throws(
+        () =>
+          approvePublicCandidate(
+            candidateDirectory,
+            publicationDirectory,
+            approvedOn,
+            reviewedReportSha256,
+          ),
+        (error: unknown) =>
+          error instanceof PublicationWorkflowError && error.code === "candidate_invalid",
+      );
+      assert.equal(existsSync(path.join(publicationDirectory, "approved")), false);
     });
   });
 
@@ -306,6 +345,7 @@ describe("P6-04 publication candidate, approval, and rollback workflow", () => {
         firstCandidateDirectory,
         publicationDirectory,
         approvedOn,
+        first.candidate.manifest.reportSha256,
       );
 
       const secondProjection = projectPublicSnapshot(
@@ -324,6 +364,7 @@ describe("P6-04 publication candidate, approval, and rollback workflow", () => {
         secondCandidateDirectory,
         publicationDirectory,
         "2026-08-12",
+        secondCandidate.manifest.reportSha256,
       );
       assert.equal(existsSync(firstApprovedDirectory), true);
       assert.equal(existsSync(secondApprovedDirectory), true);
