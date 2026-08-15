@@ -11,11 +11,11 @@ import {
   type AnalyticalExportManifest,
 } from "../../src/exports/analytics.ts";
 import {
-  PUBLICATION_INPUT_SCHEMA_VERSION,
   dormancySelectionKey,
-  rediscoverySelectionKey,
+  PUBLICATION_INPUT_SCHEMA_VERSION,
   type PublicationContentInput,
   type PublicationProjectionInput,
+  rediscoverySelectionKey,
 } from "../../src/publication/projection.ts";
 
 const names = [
@@ -39,7 +39,7 @@ const end = "2021-01-01T06:00:00.000Z";
 const commonEnvelope = {
   asOf: end,
   dateRange: { endExclusive: end, startInclusive: start },
-  eventCount: 30,
+  eventCount: 50,
   includedSources: ["lastfm", "spotify"],
   presentationTimezone: "America/Chicago",
   schemaVersion: "analytical-result-v2",
@@ -99,7 +99,7 @@ export const syntheticDormancy = {
 
 export function createSyntheticPrivateArtifacts(options: { readonly empty?: boolean } = {}) {
   const empty = options.empty ?? false;
-  const eventCount = empty ? 0 : 30;
+  const eventCount = empty ? 0 : 50;
   const context = {
     ...commonEnvelope,
     asOf: empty ? null : commonEnvelope.asOf,
@@ -134,7 +134,7 @@ export function createSyntheticPrivateArtifacts(options: { readonly empty?: bool
   const volumeRows = empty
     ? []
     : Array.from({ length: 12 }, (_, index) => {
-        const playCount = index < 6 ? 3 : 2;
+        const playCount = index < 2 ? 5 : 4;
         return {
           period: `2020-${String(index + 1).padStart(2, "0")}`,
           priorYearValue: null,
@@ -147,9 +147,10 @@ export function createSyntheticPrivateArtifacts(options: { readonly empty?: bool
   const artistIntervals = empty
     ? []
     : [
-        artistInterval(1, "Synthetic Eligible Artist", 24, 0.75),
-        artistInterval(3, "Synthetic Count Suppressed Artist", 23, 1),
-        artistInterval(4, "Synthetic Strength Suppressed Artist", 24, 0.749),
+        artistInterval(1, "Synthetic Eligible Artist", 24, 0.75, 0.6),
+        artistInterval(3, "Synthetic Count Suppressed Artist", 23, 1, 0.1),
+        artistInterval(4, "Synthetic Strength Suppressed Artist", 24, 0.749, 0.1),
+        artistInterval(5, "Synthetic Overlap Artist", 24, 0.8, 0.4, [12, 12]),
       ];
   const data = {
     volume: envelope(
@@ -172,8 +173,8 @@ export function createSyntheticPrivateArtifacts(options: { readonly empty?: bool
       },
       {
         spotifyDuration: {
-          availableEventCount: empty ? 0 : 20,
-          rate: empty ? 0 : 2 / 3,
+          availableEventCount: empty ? 0 : 30,
+          rate: empty ? 0 : 0.6,
           totalEventCount: eventCount,
         },
       },
@@ -329,6 +330,11 @@ export function syntheticPublicationInput(
         artistId: 1,
         slug: "synthetic-eligible-artist",
       },
+      {
+        artistDisplayName: "Synthetic Overlap Artist",
+        artistId: 5,
+        slug: "synthetic-overlap-artist",
+      },
     ],
     featuredArtists: [
       {
@@ -385,11 +391,13 @@ function artistInterval(
   artistDisplayName: string,
   playCount: number,
   strength: number,
+  share: number,
+  windowPlayCounts: readonly number[] = [6, 6, 6, playCount - 18],
 ) {
-  const windowPlayCounts = [6, 6, 6, playCount - 18];
   const evidence = windowPlayCounts.map((windowPlayCount, index) => ({
     components: {
       ...artistComponents,
+      listeningShare: share,
       rollingPlayCount: playCount,
       strength,
       windowPlayCount,
@@ -405,21 +413,21 @@ function artistInterval(
     evidence,
     peak: { components: peak.components, windowStart: peak.windowStart },
     playCount,
-    share: artistId === 1 ? 0.8 : 0.1,
+    share,
     strength,
-    windowEndExclusive: "2020-05",
+    windowEndExclusive: `2020-${String(windowPlayCounts.length + 1).padStart(2, "0")}`,
     windowStart: "2020-01",
   };
 }
 
 function syntheticCoverage(empty: boolean) {
-  const eventCount = empty ? 0 : 30;
+  const eventCount = empty ? 0 : 50;
   return {
     canonical: {
       bySourceBacking: {
         both: empty ? 0 : 10,
-        lastfm: empty ? 0 : 10,
-        spotify: empty ? 0 : 10,
+        lastfm: empty ? 0 : 20,
+        spotify: empty ? 0 : 20,
       },
       eventCount,
       merges: {
@@ -429,7 +437,7 @@ function syntheticCoverage(empty: boolean) {
         inferredCrossSourceSourceLinks: empty ? 0 : 20,
       },
       overlapByYear: empty ? [] : [{ eventCount: 10, year: 2020 }],
-      unresolved: { eventCount: empty ? 0 : 3, rate: empty ? 0 : 0.1 },
+      unresolved: { eventCount: empty ? 0 : 5, rate: empty ? 0 : 0.1 },
     },
     generatedAt: "1970-01-01T00:00:00.000Z",
     inputFiles: [{ sha256: "4".repeat(64), source: "lastfm" }],
@@ -441,9 +449,9 @@ function syntheticCoverage(empty: boolean) {
       longGapThresholdDays: 365,
     },
     sources: (["lastfm", "spotify"] as const).map((source) => ({
-      byYear: empty ? [] : [{ evidenceCount: 20, year: 2020 }],
+      byYear: empty ? [] : [{ evidenceCount: 30, year: 2020 }],
       duplicates: { extraEvidenceCount: 0, groupCount: 0 },
-      evidenceCount: empty ? 0 : 20,
+      evidenceCount: empty ? 0 : 30,
       longGaps: empty
         ? []
         : [
@@ -466,7 +474,7 @@ function syntheticCoverage(empty: boolean) {
         field,
         missingCount: 0,
         missingRate: 0,
-        totalCount: empty ? 0 : 20,
+        totalCount: empty ? 0 : 30,
       })),
       observedRange: empty
         ? null
@@ -475,13 +483,13 @@ function syntheticCoverage(empty: boolean) {
             lastObservedAt: "2020-12-31T23:59:59.999Z",
           },
       source,
-      totals: { accepted: empty ? 0 : 20, nonMusic: 0, rejected: 0 },
+      totals: { accepted: empty ? 0 : 30, nonMusic: 0, rejected: 0 },
     })),
     timezone: "America/Chicago",
     totals: {
-      accepted: empty ? 0 : 40,
+      accepted: empty ? 0 : 60,
       canonicalEvents: eventCount,
-      evidenceOccurrences: empty ? 0 : 40,
+      evidenceOccurrences: empty ? 0 : 60,
       nonMusic: 0,
       rejected: 0,
     },

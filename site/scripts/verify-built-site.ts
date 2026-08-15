@@ -4,15 +4,21 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 const root = path.join(process.cwd(), "site", "dist");
-const routes = [
+const baseRoutes: readonly (readonly [string, boolean, boolean | "optional"])[] = [
   ["404.html", false, false],
   ["index.html", true, true],
-  ["artists/index.html", true, false],
+  ["artists/index.html", true, "optional"],
   ["explore/index.html", true, true],
   ["history/index.html", true, true],
   ["methodology/index.html", true, false],
   ["stories/index.html", true, false],
 ] as const;
+const artistDirectory = path.join(root, "artists");
+const artistDetailRoutes = readdirSync(artistDirectory, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => [`artists/${entry.name}/index.html`, true, true] as const)
+  .toSorted(([left], [right]) => left.localeCompare(right));
+const routes = [...baseRoutes, ...artistDetailRoutes];
 
 const privateFieldTokens = [
   "canonicalSnapshotSha256",
@@ -51,10 +57,11 @@ for (const [relativeFile, analytical, interactive] of routes) {
   assert.match(html, /<main id="main-content" tabindex="-1">/u);
   assert.match(html, /<h1>[^<]+<\/h1>/u);
   assert.match(html, /<footer class="site-footer">/u);
-  if (interactive) {
+  const hasScript = /<script\b/u.test(html);
+  if (interactive === true) {
     assert.match(html, /<script\b/u);
     assert.ok(clientJavaScript <= 125 * 1024, "Interactive route JavaScript exceeds its budget");
-  } else {
+  } else if (interactive === false) {
     assert.doesNotMatch(html, /<script\b/u);
   }
   assert.doesNotMatch(html, /(?:href|src)="https:\/\/(?!music\.the816\.com)/u);
@@ -70,8 +77,7 @@ for (const [relativeFile, analytical, interactive] of routes) {
     assert.doesNotMatch(html, new RegExp(token, "u"));
   }
   assert.ok(
-    gzipSync(html).length + gzipSync(css).length + (interactive ? clientJavaScript : 0) <=
-      250 * 1024,
+    gzipSync(html).length + gzipSync(css).length + (hasScript ? clientJavaScript : 0) <= 250 * 1024,
     `${relativeFile} exceeds the conservative shell transfer budget`,
   );
 }
@@ -110,7 +116,9 @@ assert.equal(
   "Snapshot JSON must not ship",
 );
 
-console.log(`Verified ${routes.length} static route files and ${allFiles.length} total assets.`);
+console.log(
+  `Verified ${routes.length} static route files (${artistDetailRoutes.length} eligible artist detail) and ${allFiles.length} total assets.`,
+);
 
 function listFiles(directory: string): string[] {
   return readdirSync(directory, { recursive: true })

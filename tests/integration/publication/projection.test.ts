@@ -5,14 +5,14 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import {
-  loadPrivateAnalyticalBundle,
   type LoadedPrivateAnalyticalBundle,
+  loadPrivateAnalyticalBundle,
 } from "../../../src/publication/private-bundle.ts";
 import {
   PublicationProjectionError,
+  type PublicationProjectionInput,
   projectPublicSnapshot,
   rediscoverySelectionKey,
-  type PublicationProjectionInput,
 } from "../../../src/publication/projection.ts";
 import {
   emptyPublicationInput,
@@ -54,7 +54,7 @@ describe("P6-04 private-to-public projection", () => {
       };
       assert.equal(history.periods[0]?.period, "2020-01");
       assert.equal(history.periods.at(-1)?.period, "2020-12");
-      assert.equal(history.totalPlayCount, 30);
+      assert.equal(history.totalPlayCount, 50);
 
       const artists = projected.artifacts.artists.data as {
         artists: readonly {
@@ -67,7 +67,7 @@ describe("P6-04 private-to-public projection", () => {
           slug: string;
         }[];
       };
-      assert.equal(artists.artists.length, 1);
+      assert.equal(artists.artists.length, 2);
       const eligible = artists.artists[0];
       assert.ok(eligible);
       assert.equal(eligible.displayName, "Synthetic Eligible Artist");

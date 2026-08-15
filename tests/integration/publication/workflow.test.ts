@@ -3,8 +3,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -19,17 +19,17 @@ import { loadPrivateAnalyticalBundle } from "../../../src/publication/private-bu
 import { projectPublicSnapshot } from "../../../src/publication/projection.ts";
 import {
   ACTIVE_PUBLIC_SNAPSHOT_FILE,
-  PUBLIC_APPROVAL_FILE,
-  PUBLIC_MANIFEST_FILE,
-  PUBLIC_REVIEW_REPORT_FILE,
-  PublicationWorkflowError,
   activateApprovedPublicSnapshot,
   approvePublicCandidate,
   buildPublicCandidate,
+  PUBLIC_APPROVAL_FILE,
+  PUBLIC_MANIFEST_FILE,
+  PUBLIC_REVIEW_REPORT_FILE,
+  type PublicationFileSystem,
+  PublicationWorkflowError,
   readActivePublicSnapshot,
   readStoredPublicSnapshot,
   writePublicCandidate,
-  type PublicationFileSystem,
 } from "../../../src/publication/workflow.ts";
 import {
   emptyPublicationInput,
@@ -110,7 +110,11 @@ describe("P6-04 publication candidate, approval, and rollback workflow", () => {
           slugs: summary.publicSlugs,
         })),
         [
-          { artifact: "artists", count: 1, slugs: ["synthetic-eligible-artist"] },
+          {
+            artifact: "artists",
+            count: 2,
+            slugs: ["synthetic-eligible-artist", "synthetic-overlap-artist"],
+          },
           {
             artifact: "editorial",
             count: 2,

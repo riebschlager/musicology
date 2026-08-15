@@ -52,6 +52,14 @@ export interface PublicArtistData {
     readonly displayName: string;
     readonly intervals: readonly {
       readonly endPeriodExclusive: string;
+      readonly evidence: readonly {
+        readonly components: PublicArtistComponents;
+        readonly period: string;
+      }[];
+      readonly peak: {
+        readonly components: PublicArtistComponents;
+        readonly period: string;
+      };
       readonly playCount: number;
       readonly share: number;
       readonly startPeriod: string;
@@ -60,6 +68,17 @@ export interface PublicArtistData {
     readonly slug: string;
   }[];
   readonly parameters: Readonly<Record<string, number>>;
+}
+
+export interface PublicArtistComponents {
+  readonly consecutiveActiveWindows: number;
+  readonly earlierBaselineChange: number | null;
+  readonly earlierBaselineRollingPlayCount: number | null;
+  readonly listeningShare: number;
+  readonly rank: number;
+  readonly rollingPlayCount: number;
+  readonly strength: number;
+  readonly windowPlayCount: number;
 }
 
 export interface PublicContentBlock {

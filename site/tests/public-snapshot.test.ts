@@ -19,10 +19,16 @@ describe("build-only public snapshot adapter", () => {
     const snapshot = loadSiteSnapshot({ fixture: "full", projectRoot: process.cwd() });
 
     expect(snapshot.manifest.snapshotId).toBe("snapshot-2026-08-09-fixture");
-    expect(snapshot.history.data.totalPlayCount).toBe(30);
+    expect(snapshot.history.data.totalPlayCount).toBe(50);
     expect(snapshot.artists.data.artists.map((artist) => artist.slug)).toEqual([
       "synthetic-eligible-artist",
+      "synthetic-overlap-artist",
     ]);
+    expect(
+      snapshot.artists.data.artists.every((artist) =>
+        artist.intervals.some((interval) => interval.playCount >= 24 && interval.strength >= 0.75),
+      ),
+    ).toBe(true);
     expect(snapshot.stories.data.stories).toHaveLength(2);
     expect(Object.keys(snapshot).sort()).toEqual([
       "artists",

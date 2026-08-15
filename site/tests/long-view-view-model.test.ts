@@ -21,7 +21,7 @@ describe("long-view state and view model", () => {
 
     expect(state.canonicalSearch).toBe("");
     expect(model.totalPlayCount).toBe(snapshot.history.data.totalPlayCount);
-    expect(model.periods.reduce((sum, row) => sum + row.playCount, 0)).toBe(30);
+    expect(model.periods.reduce((sum, row) => sum + row.playCount, 0)).toBe(50);
     expect(model.findings.join(" ")).toMatch(/counted once/u);
   });
 
@@ -36,7 +36,7 @@ describe("long-view state and view model", () => {
     );
 
     expect(state).toMatchObject({ canonicalSearch: "", grain: "year" });
-    expect(model.periods.map((row) => [row.period, row.playCount])).toEqual([["2020", 30]]);
+    expect(model.periods.map((row) => [row.period, row.playCount])).toEqual([["2020", 50]]);
 
     const explicitMonth = parseLongViewState(
       new URLSearchParams("grain=month"),
@@ -59,10 +59,10 @@ describe("long-view state and view model", () => {
 
     expect(state.canonicalSearch).toBe("?from=2020-04&to=2020-09&grain=quarter&view=table");
     expect(model.periods.map((row) => [row.period, row.playCount])).toEqual([
-      ["2020-Q2", 9],
-      ["2020-Q3", 6],
+      ["2020-Q2", 12],
+      ["2020-Q3", 12],
     ]);
-    expect(model.totalPlayCount).toBe(15);
+    expect(model.totalPlayCount).toBe(24);
   });
 
   it("falls back without reflecting unsupported, duplicate, or out-of-range URL state", () => {

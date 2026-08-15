@@ -22,7 +22,7 @@ describe("long-view explorer", () => {
   it("server-renders totals, findings, tables, and the metric boundary", () => {
     renderExplorer();
 
-    expect(screen.getByText(/30 canonical plays fall within/u)).toBeTruthy();
+    expect(screen.getByText(/50 canonical plays fall within/u)).toBeTruthy();
     expect(screen.getByRole("table", { name: /Canonical plays and source context/u })).toBeTruthy();
     expect(screen.getByRole("table", { name: /Full-calendar-year source coverage/u })).toBeTruthy();
     expect(screen.getByText("Spotify-only duration")).toBeTruthy();
@@ -31,7 +31,7 @@ describe("long-view explorer", () => {
     const totalRow = screen.getByRole("table", { name: /Canonical plays/u }).querySelector("tfoot");
     expect(totalRow).not.toBeNull();
     if (totalRow === null) throw new Error("Canonical play table requires a total row");
-    expect(within(totalRow).getByText("30")).toBeTruthy();
+    expect(within(totalRow).getByText("50")).toBeTruthy();
     expect(document.querySelector(".filter-panel__summary")?.textContent).toContain(
       "Showing year canonical play counts",
     );
@@ -59,7 +59,7 @@ describe("long-view explorer", () => {
       "https://music.the816.com/history/?from=2020-04&to=2020-09&grain=quarter&view=table",
     );
     expect(
-      within(screen.getByRole("table", { name: /Canonical plays/u })).getByText("15"),
+      within(screen.getByRole("table", { name: /Canonical plays/u })).getByText("24"),
     ).toBeTruthy();
     expect(screen.getByText(/full-calendar-year source-evidence aggregates/u).textContent).toMatch(
       /include approved evidence from outside the selected months/u,

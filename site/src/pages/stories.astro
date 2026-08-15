@@ -43,6 +43,7 @@ const stories = buildStoryCards(snapshot.stories.data.stories);
       <div class="story-grid">
         {stories.map((story) => (
           <EditorialStory
+            id={story.slug}
             kind={story.kind}
             title={story.title}
             summary={story.summary}

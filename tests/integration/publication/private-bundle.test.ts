@@ -6,8 +6,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import {
-  PrivateBundleError,
   loadPrivateAnalyticalBundle,
+  PrivateBundleError,
 } from "../../../src/publication/private-bundle.ts";
 import { syntheticDatabaseState, writeSyntheticPrivateBundle } from "../../fixtures/publication.ts";
 
@@ -26,11 +26,11 @@ describe("P6-04 private analytical bundle adapter", () => {
       writeSyntheticPrivateBundle(directory);
       const loaded = loadPrivateAnalyticalBundle(directory, syntheticDatabaseState);
 
-      assert.equal(loaded.volume.eventCount, 30);
-      assert.equal(loaded.artistEras.result.intervals.length, 3);
+      assert.equal(loaded.volume.eventCount, 50);
+      assert.equal(loaded.artistEras.result.intervals.length, 4);
       assert.equal(loaded.rediscovery.result.rediscoveries.length, 1);
       assert.equal(loaded.abandonment.result.artists.length, 1);
-      assert.equal(loaded.coverage.canonical.eventCount, 30);
+      assert.equal(loaded.coverage.canonical.eventCount, 50);
     });
   });
 

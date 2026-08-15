@@ -28,6 +28,7 @@ export interface AnalyticalDisclosure {
 
 export interface StoryCard {
   readonly kind: "dormancy" | "rediscovery";
+  readonly slug: string;
   readonly summary: string;
   readonly title: string;
   readonly trackLabel?: string;
@@ -69,6 +70,7 @@ export function buildStoryCards(
 ): readonly StoryCard[] {
   return stories.map((story) => ({
     kind: story.kind,
+    slug: story.slug,
     summary: story.summary,
     title: story.title,
     ...(story.selectedTrack === null

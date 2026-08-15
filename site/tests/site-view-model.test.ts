@@ -50,6 +50,7 @@ describe("site view models", () => {
     expect(buildStoryCards(oneStory)).toEqual([
       {
         kind: "rediscovery",
+        slug: "synthetic-rediscovery",
         summary: "Summary for synthetic-rediscovery.",
         title: "Title for synthetic-rediscovery",
         trackLabel: "Wholly Manual Track Artist — Wholly Manual Selected Track",
