@@ -32,6 +32,8 @@ import {
 } from "../exports/analytics.ts";
 import { COVERAGE_REPORT_VERSION, type CoverageReport } from "../reporting/coverage.ts";
 
+type DeterministicCoverageReport = Omit<CoverageReport, "generatedAt">;
+
 const PRIVATE_ARTIFACT_NAMES = [
   "abandonment",
   "artist-eras",
@@ -72,7 +74,7 @@ const PRIVATE_ANALYSIS_CONTRACTS = {
 export interface LoadedPrivateAnalyticalBundle {
   readonly abandonment: AnalyticalResult<AbandonmentResult>;
   readonly artistEras: AnalyticalResult<ArtistEraResult>;
-  readonly coverage: CoverageReport;
+  readonly coverage: DeterministicCoverageReport;
   readonly databaseState: AnalyticalExportDatabaseState;
   readonly genreEras: AnalyticalResult<GenreEraResult>;
   readonly manifest: AnalyticalExportManifest;
@@ -672,7 +674,7 @@ function validateGenreComponents(input: unknown, label: string): void {
 
 function validateCommonContext(
   analyses: readonly AnalyticalResult[],
-  coverage: CoverageReport,
+  coverage: DeterministicCoverageReport,
 ): void {
   const first = analyses[0];
   if (first === undefined) inconsistent();
@@ -707,13 +709,12 @@ function validateCommonContext(
 
 function coverageData(
   artifacts: ReadonlyMap<AnalyticalExportArtifactName, AnalyticalExportArtifact>,
-): CoverageReport {
+): DeterministicCoverageReport {
   const value = artifacts.get("coverage")?.data;
   const label = "coverage";
   const report = plainObject(value, label);
   const keys = [
     "canonical",
-    "generatedAt",
     "inputFiles",
     "reportVersion",
     "semantics",
@@ -726,7 +727,6 @@ function coverageData(
   if (report.reportVersion !== COVERAGE_REPORT_VERSION || !isTimezone(report.timezone)) {
     incompatible(label);
   }
-  validateCanonicalTimestamp(report.generatedAt, label);
   const semantics = exactObject(
     report.semantics,
     ["canonicalEventCountsIncluded", "countLayer", "longGapDefinition", "longGapThresholdDays"],
@@ -931,7 +931,7 @@ function coverageData(
   if (report.archiveBaselineComparison !== undefined) {
     validateArchiveBaselineComparison(report.archiveBaselineComparison, label);
   }
-  return report as unknown as CoverageReport;
+  return report as unknown as DeterministicCoverageReport;
 }
 
 function analyticalData<T extends JsonObject>(

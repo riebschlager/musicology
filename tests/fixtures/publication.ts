@@ -439,7 +439,6 @@ function syntheticCoverage(empty: boolean) {
       overlapByYear: empty ? [] : [{ eventCount: 10, year: 2020 }],
       unresolved: { eventCount: empty ? 0 : 5, rate: empty ? 0 : 0.1 },
     },
-    generatedAt: "1970-01-01T00:00:00.000Z",
     inputFiles: [{ sha256: "4".repeat(64), source: "lastfm" }],
     reportVersion: "coverage-v2",
     semantics: {

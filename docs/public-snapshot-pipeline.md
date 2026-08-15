@@ -15,6 +15,12 @@ state drift, unsupported or unknown fields, forbidden nested fields, digest mism
 inconsistent counts or shared coverage fail with sanitized error codes; source records and payload
 values are never included in diagnostics.
 
+The analytical exporter deliberately omits the coverage report's operational `generatedAt` field
+so equal database states produce equal bundle bytes. The private-bundle adapter requires that exact
+deterministic coverage shape and does not synthesize or optionally admit the omitted timestamp.
+Candidate `generatedOn` and approval/publication dates are supplied later by the publication
+workflow.
+
 `projectPublicSnapshot` creates new closed objects field by field. It reduces exact event timestamps
 to the public month/date contract, validates the Phase 4 month-based era bounds without reinterpreting
 them as instants, enforces the P6-02 artist thresholds and result limits, resolves reviewed artist
