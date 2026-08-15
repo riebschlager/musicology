@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@observablehq/plot": ["./src/types/observablehq-plot.d.ts"]
+    },
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["scripts/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"]
+}

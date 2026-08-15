@@ -1,0 +1,157 @@
+---
+import type { GetStaticPaths } from "astro";
+
+import DisclosurePanel from "../../components/DisclosurePanel.astro";
+import EditorialStory from "../../components/EditorialStory.astro";
+import NarrativeSection from "../../components/NarrativeSection.astro";
+import PageIntro from "../../components/PageIntro.astro";
+import { ArtistDetailExplorer } from "../../islands/ArtistDetailExplorer.tsx";
+import { loadSiteSnapshot, type PublicArtistData } from "../../adapters/public-snapshot.ts";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure, formatNumber, formatPercent } from "../../view-models/site.ts";
+
+interface Props {
+  readonly artist: PublicArtistData["artists"][number];
+}
+
+export const getStaticPaths: GetStaticPaths = () => {
+  const snapshot = loadSiteSnapshot();
+  return snapshot.artists.data.artists.map((artist) => ({
+    params: { artistSlug: artist.slug },
+    props: { artist },
+  }));
+};
+
+const { artist } = Astro.props;
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+const featured = snapshot.editorial.data.featuredArtists.find(
+  (entry) => entry.artistSlug === artist.slug,
+);
+const storySlugs = new Set(featured?.storySlugs ?? []);
+const stories = snapshot.stories.data.stories.filter(
+  (story) =>
+    story.artistSlug === artist.slug && (featured === undefined || storySlugs.has(story.slug)),
+);
+const strongest = artist.intervals.toSorted((left, right) => right.strength - left.strength)[0];
+const parameterRows = Object.entries(snapshot.artists.data.parameters).toSorted(([left], [right]) =>
+  left.localeCompare(right),
+);
+---
+
+<BaseLayout
+  canonicalPath={`/artists/${artist.slug}/`}
+  currentPath="/artists/"
+  description={`Approved aggregate artist-era evidence and reviewed editorial context for ${artist.displayName}.`}
+  title={artist.displayName}
+>
+  <PageIntro
+    chapter="Artist season · Eligible detail"
+    title={artist.displayName}
+    dek="This static page exists because aggregate evidence passed the reviewed publication policy. It contains qualifying windows and authored context—not individual plays or a complete private artist history."
+  />
+
+  {strongest && (
+    <dl class="metric-strip" aria-label={`${artist.displayName} aggregate signal at a glance`}>
+      <div>
+        <dt>Public intervals</dt>
+        <dd>{formatNumber(artist.intervals.length)}</dd>
+      </div>
+      <div>
+        <dt>Strongest signal</dt>
+        <dd>{formatPercent(strongest.strength)}</dd>
+      </div>
+      <div>
+        <dt>Qualifying-window plays</dt>
+        <dd>{formatNumber(artist.intervals.reduce((total, interval) => total + interval.playCount, 0))}</dd>
+      </div>
+    </dl>
+  )}
+
+  <NarrativeSection
+    id="artist-evidence"
+    index="01"
+    eyebrow="Parameterized signal"
+    title="When the aggregate evidence was strongest."
+    summary="Range and reading-mode controls operate only over this eligible artist's reduced, approved interval evidence. Every state remains directly linkable and bounded."
+  >
+    <ArtistDetailExplorer artist={artist} client:load />
+    <p><a href={`/artists/?artist=${artist.slug}`}>Compare this signal with the eligible cohort</a></p>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="artist-interpretation"
+    index="02"
+    eyebrow="Editorial context"
+    title="Interpretation is kept separate from evidence."
+    summary="Featured prose and track names are reviewed editorial objects. They do not change interval boundaries, strength, or component values."
+  >
+    {featured ? (
+      <article class="featured-artist">
+        <p class="eyebrow">Reviewed featured-artist note</p>
+        <h3>{featured.title}</h3>
+        <p>{featured.summary}</p>
+        {featured.body.map((block) => (
+          <section>
+            {block.heading && <h4>{block.heading}</h4>}
+            {block.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+          </section>
+        ))}
+        <p class="editorial-boundary">Editorial interpretation · not analytical evidence</p>
+      </article>
+    ) : (
+      <p>No featured-artist story is attached to this eligible analytical page.</p>
+    )}
+
+    {stories.length > 0 && (
+      <div class="story-grid">
+        {stories.map((story) => (
+          <EditorialStory
+            id={story.slug}
+            kind={story.kind}
+            title={story.title}
+            summary={story.summary}
+            trackLabel={story.selectedTrack === null
+              ? undefined
+              : `${story.selectedTrack.artistDisplayName} — ${story.selectedTrack.trackDisplayName}`}
+          >
+            <p>
+              <a href={`/stories/${story.slug}/`}>Read the reviewed story context</a>
+            </p>
+          </EditorialStory>
+        ))}
+      </div>
+    )}
+    <p>
+      Selected-track names appear only when the closed <code>stories.json</code> editorial allowlist
+      supplies them. No track is inferred from interval evidence.
+    </p>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="artist-parameters"
+    index="03"
+    eyebrow="Published method"
+    title="The parameters travel with the label."
+    summary="Changing these values would require a newly versioned analytical input and reviewed public snapshot; this page does not recalculate them in the browser."
+  >
+    <div class="table-region" role="region" aria-labelledby="artist-parameter-caption" tabindex="0">
+      <p class="table-region__instruction">The current public artist-era parameter set.</p>
+      <table>
+        <caption id="artist-parameter-caption">Artist-era parameters for this snapshot</caption>
+        <thead><tr><th scope="col">Parameter</th><th scope="col">Published value</th></tr></thead>
+        <tbody>
+          {parameterRows.map(([parameter, value]) => (
+            <tr><th scope="row">{parameter}</th><td>{formatNumber(value)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Eligibility itself requires an already-qualified interval with at least 24 plays and peak
+      strength of at least 75%. Passing that publication gate is not a claim about musical worth.
+    </p>
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

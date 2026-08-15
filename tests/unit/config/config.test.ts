@@ -21,6 +21,7 @@ describe("project configuration", () => {
         databasePath: path.join(testRoot, "data/database/musicology.sqlite3"),
         inputsDirectory: path.join(testRoot, "data/inputs"),
         outputsDirectory: path.join(testRoot, "data/outputs"),
+        publicationDirectory: path.join(testRoot, "data/publication"),
       },
       presentationTimezone: DEFAULT_PRESENTATION_TIMEZONE,
       lastfm: {},
@@ -34,6 +35,7 @@ describe("project configuration", () => {
         MUSICOLOGY_DATABASE_PATH: "/var/tmp/musicology-test.sqlite3",
         MUSICOLOGY_INPUTS_DIR: "fixtures/inputs",
         MUSICOLOGY_OUTPUTS_DIR: "artifacts",
+        MUSICOLOGY_PUBLICATION_DIR: "public-release",
         MUSICOLOGY_TIMEZONE: "Europe/Berlin",
         LASTFM_USERNAME: "listener",
         LASTFM_API_KEY: "test-api-key",
@@ -46,6 +48,7 @@ describe("project configuration", () => {
       databasePath: "/var/tmp/musicology-test.sqlite3",
       inputsDirectory: path.join(testRoot, "fixtures/inputs"),
       outputsDirectory: path.join(testRoot, "artifacts"),
+      publicationDirectory: path.join(testRoot, "public-release"),
     });
     assert.equal(configuration.presentationTimezone, "Europe/Berlin");
     assert.deepEqual(configuration.lastfm, {
@@ -67,6 +70,7 @@ describe("project configuration", () => {
       path.join(testRoot, "private-data/database/musicology.sqlite3"),
     );
     assert.equal(configuration.paths.outputsDirectory, path.join(testRoot, "private-data/outputs"));
+    assert.equal(configuration.paths.publicationDirectory, path.join(testRoot, "data/publication"));
   });
 
   it("rejects an invalid timezone without echoing its value", () => {

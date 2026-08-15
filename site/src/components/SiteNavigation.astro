@@ -1,0 +1,34 @@
+---
+import { PRIMARY_NAVIGATION } from "../content/navigation.ts";
+
+interface Props {
+  readonly currentPath: string;
+}
+
+const { currentPath } = Astro.props;
+
+function isCurrent(href: string): boolean {
+  if (href === "/") return currentPath === "/";
+  return currentPath.startsWith(href);
+}
+---
+
+<nav class="site-nav" aria-label="Primary">
+  <a class="site-mark" href="/" aria-label="Musicology long view">
+    <span class="site-mark__disc" aria-hidden="true"></span>
+    <span>
+      <strong>Musicology</strong>
+      <small>A listening atlas</small>
+    </span>
+  </a>
+  <ul>
+    {PRIMARY_NAVIGATION.map((item) => (
+      <li>
+        <a href={item.href} aria-current={isCurrent(item.href) ? "page" : undefined}>
+          <span aria-hidden="true">{item.shortLabel}</span>
+          {item.label}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>

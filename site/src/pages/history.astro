@@ -1,0 +1,45 @@
+---
+import DisclosurePanel from "../components/DisclosurePanel.astro";
+import NarrativeSection from "../components/NarrativeSection.astro";
+import PageIntro from "../components/PageIntro.astro";
+import { LongViewExplorer } from "../islands/LongViewExplorer.tsx";
+import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure, formatNumber } from "../view-models/site.ts";
+
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+---
+
+<BaseLayout
+  canonicalPath="/history/"
+  currentPath="/history/"
+  description="See where the listening evidence comes from, where it is thin, and which metrics cover the full retained history."
+  title="History & coverage"
+>
+  <PageIntro
+    chapter="Field notes · Coverage"
+    title="Where the evidence speaks—and where it goes quiet."
+    dek="A gap in one source is not an absence of listening. Coverage belongs beside the history before any rise or fall becomes a claim."
+  />
+
+  <NarrativeSection
+    id="history-question"
+    index="01"
+    eyebrow="The public question"
+    title="What can the retained record honestly support?"
+    summary={`${formatNumber(snapshot.manifest.coverage.canonicalEventCount)} canonical events are represented in this reviewed snapshot; source evidence and duration coverage remain separately labeled.`}
+  >
+    <LongViewExplorer
+      allowRange={true}
+      asOfDate={snapshot.manifest.asOfDate}
+      canonicalEventCount={snapshot.manifest.coverage.canonicalEventCount}
+      history={snapshot.history.data}
+      route="/history/"
+      spotifyDurationEventCount={snapshot.manifest.coverage.spotifyDurationEventCount}
+      client:load
+    />
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

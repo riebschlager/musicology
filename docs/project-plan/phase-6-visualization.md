@@ -74,6 +74,9 @@ and contains no requirement to query raw exports, SQLite, or a hosted service.
 - Define public date granularity, artist eligibility/significance rules, long-tail suppression,
   selected-track allowlisting, stable public slugs, result limits, and treatment of small or sparse
   groups.
+- Define selected-track artist/track display identity as wholly manual reviewed editorial detail,
+  independent of private analytical candidate availability and incapable of creating track-level
+  analytical evidence.
 - Exclude individual listening events, private analytical-bundle passthrough, internal/source IDs,
   source paths and filenames, fingerprints, raw provider payloads, credentials, and all previously
   excluded sensitive fields.
@@ -86,9 +89,10 @@ and contains no requirement to query raw exports, SQLite, or a hosted service.
   visitor analytics, third-party requests, and site privacy disclosure.
 
 **Acceptance:** contract and privacy tests can prove the public schema is allowlisted, rejects an
-unknown or forbidden field, applies the chosen granularity and selection rules, and cannot express
-an event-level listening log. A reviewer can determine exactly what a proposed snapshot would make
-public before approving it.
+unknown or forbidden field, applies the chosen granularity and selection rules, treats manual track
+identity as editorial rather than analytical evidence, and cannot express an event-level listening
+log. A reviewer can determine exactly what a proposed snapshot would make public before approving
+it.
 
 ### P6-03 — Confirm and document the static web/visualization stack
 
@@ -124,6 +128,9 @@ server runtime, or monorepo is required for the initial microsite.
   errors.
 - Project only the P6-02 allowlisted fields and aggregations into the versioned public artifacts,
   applying public date granularity, artist eligibility, result bounds, and editorial selections.
+- Treat selected-track artist/track display identity as wholly manual reviewed editorial detail.
+  Do not require a private analytical track candidate, and do not attach track-level analytical
+  evidence merely because a manual track identity is present.
 - Produce deterministic filenames, serialization, hashes, and a manifest; stage the complete
   snapshot before replacing a prior generated candidate.
 - Produce a deterministic publication report and human-reviewable diff summary covering exposed
@@ -134,9 +141,12 @@ server runtime, or monorepo is required for the initial microsite.
 - Add small deterministic public fixture snapshots for site development and tests.
 
 **Acceptance:** tests cover every public artifact plus empty history, incompatible/stale private
-input, forbidden and unknown fields, date reduction, threshold boundaries, track-story selection,
-deterministic reruns, failed staging, snapshot supersession, and rollback. The output contains no
-private-only field and does not require the local database after generation.
+input, forbidden and unknown fields, date reduction, threshold boundaries, wholly manual
+track-story identity (including duplicate, missing-story, and unreviewed-name failures),
+deterministic reruns, failed staging, snapshot supersession, and rollback. Tests also prove a manual
+track selection neither requires a private analytical candidate nor creates track-level analytical
+evidence. The output contains no private-only field and does not require the local database after
+generation.
 
 ### P6-05 — Build the narrative shell and disclosure system
 
@@ -224,28 +234,31 @@ detail comes only from the editorial allowlist, and no page reconstructs an even
 classification exposes its approved evidence/parameters, later observations supersede rather than
 silently rewrite prior conclusions, and selected track names cannot enter through unreviewed data.
 
-### P6-09 — Add or explicitly defer the experimental genre lab
+### P6-09 — Defer the experimental genre lab from the initial release
 
 **Depends on:** Phase 5 gate, P6-02, and P6-05
 
-**Work:**
+**Status:** complete by explicit deferral on 2026-08-15; see
+[`phase-6-genre-lab-deferral.md`](../decisions/phase-6-genre-lab-deferral.md)
 
-- Reconfirm the Phase 5 fitness assessment against the snapshot intended for publication.
-- If included, isolate genre views behind an explicit experimental treatment showing raw mode,
-  MusicBrainz provider, nullable taxonomy, artist-level weighting, freshness, and usable-event
-  coverage overall and across time.
-- Explain that provider tags can be sparse, current rather than historically contemporaneous, and
-  unrepresentative of the complete history.
-- If the treatment cannot communicate the limitations without misleading visitors, defer the route
-  and record the evidence and product gate required to activate it later.
+**Decision:**
 
-**Acceptance:** either no genre route/data ships and the deferral is documented, or every genre
-view is unmistakably experimental and displays provider, mode, taxonomy, weighting, freshness, and
-coverage. Partial enrichment is never plotted as complete history.
+- Defer `/lab/genres/` and `genre-lab.json` from the initial release. No placeholder route, public
+  genre payload, navigation item, or partial genre-history presentation ships.
+- Retain the optional Phase 5 evidence/analysis pipeline and the dormant public-schema boundary so
+  the decision can be revisited without coupling genre enrichment to the core history.
+- Require a future task to improve and reassess exact-identity and usable-event coverage, review and
+  import a versioned curated taxonomy, and record a new explicit publication decision before any
+  genre route or data is activated. Any fallback provider also requires a new provider/licensing
+  decision.
+
+**Acceptance:** the deferral and reactivation gate are documented; no genre route/data ships; the
+approved snapshot manifest keeps `artifacts.genreLab` null; and partial enrichment is never plotted
+as complete history.
 
 ### P6-10 — Implement reviewed publication and GitHub Pages deployment
 
-**Depends on:** P6-04 through P6-09 as applicable
+**Depends on:** P6-04 through P6-09
 
 **Work:**
 
@@ -286,7 +299,7 @@ prior approved snapshot/deployment can be restored without private inputs.
 - Audit the built artifact, source maps, manifests, network requests, console output, errors,
   metadata, downloads, and repository history for forbidden or unapproved data and secrets.
 - Review narrative claims, analytical totals, links, responsive layouts, reduced motion, social
-  metadata, methodology, privacy notice, version/as-of disclosure, and genre experimental status.
+  metadata, methodology, privacy notice, version/as-of disclosure, and genre deferral status.
 - Run a production smoke test for `music.the816.com` after deployment without adding visitor
   tracking unless P6-02 explicitly approved it.
 
@@ -299,6 +312,6 @@ the approved snapshot, site artifact, and deployment are reproducible and rollba
 
 Phase 6 is complete when `music.the816.com` presents a compelling, accessible narrative and
 explorer over an explicitly approved public snapshot; communicates source coverage, metric scope,
-parameters, uncertainty, genre limitations, and as-of/publication dates honestly; contains no
-unapproved private data; and can be regenerated, reviewed, deployed, and rolled back reproducibly
-without a hosted database or knowledge of raw Spotify or Last.fm formats.
+parameters, uncertainty, the initial-release genre deferral, and as-of/publication dates honestly;
+contains no unapproved private data; and can be regenerated, reviewed, deployed, and rolled back
+reproducibly without a hosted database or knowledge of raw Spotify or Last.fm formats.

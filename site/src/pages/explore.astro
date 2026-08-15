@@ -1,0 +1,45 @@
+---
+import DisclosurePanel from "../components/DisclosurePanel.astro";
+import NarrativeSection from "../components/NarrativeSection.astro";
+import PageIntro from "../components/PageIntro.astro";
+import { LongViewExplorer } from "../islands/LongViewExplorer.tsx";
+import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { buildAnalyticalDisclosure } from "../view-models/site.ts";
+
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+---
+
+<BaseLayout
+  canonicalPath="/explore/"
+  currentPath="/explore/"
+  description="Inspect bounded, URL-addressable states over the approved public listening snapshot."
+  title="Explore"
+>
+  <PageIntro
+    chapter="Workbench · Bounded views"
+    title="Change the frame, not the evidence boundary."
+    dek="Every control selects only rows already present in the approved public snapshot. The default answer and its limitations remain readable without JavaScript."
+  />
+
+  <NarrativeSection
+    id="explorer-state"
+    index="01"
+    eyebrow="Directly linkable state"
+    title="A bounded long view with a reproducible URL."
+    summary="The explorer regroups only the approved monthly play-count rows and can narrow only to reviewed months. Unsupported keys fall back visibly and never widen the public cohort."
+  >
+    <LongViewExplorer
+      allowRange={true}
+      asOfDate={snapshot.manifest.asOfDate}
+      canonicalEventCount={snapshot.manifest.coverage.canonicalEventCount}
+      history={snapshot.history.data}
+      route="/explore/"
+      spotifyDurationEventCount={snapshot.manifest.coverage.spotifyDurationEventCount}
+      client:load
+    />
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

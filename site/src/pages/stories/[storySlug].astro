@@ -1,0 +1,107 @@
+---
+import type { GetStaticPaths } from "astro";
+
+import type { PublicStory } from "../../adapters/public-snapshot.ts";
+import { loadSiteSnapshot } from "../../adapters/public-snapshot.ts";
+import DisclosurePanel from "../../components/DisclosurePanel.astro";
+import NarrativeSection from "../../components/NarrativeSection.astro";
+import PageIntro from "../../components/PageIntro.astro";
+import { StoryEvidenceTables, StorySupersession } from "../../components/StoryEvidence.tsx";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { buildStoryViewModel } from "../../view-models/stories.ts";
+import { buildAnalyticalDisclosure } from "../../view-models/site.ts";
+
+interface Props {
+  readonly story: PublicStory;
+}
+
+export const getStaticPaths: GetStaticPaths = () => {
+  const snapshot = loadSiteSnapshot();
+  return snapshot.stories.data.stories.map((story) => ({
+    params: { storySlug: story.slug },
+    props: { story },
+  }));
+};
+
+const { story } = Astro.props;
+const snapshot = loadSiteSnapshot();
+const disclosure = buildAnalyticalDisclosure(snapshot);
+const model = buildStoryViewModel(story, snapshot.stories.data.stories, snapshot.manifest.asOfDate);
+---
+
+<BaseLayout
+  canonicalPath={`/stories/${model.slug}/`}
+  currentPath="/stories/"
+  description={model.accessibilitySummary}
+  title={model.title}
+>
+  <PageIntro
+    chapter={`${model.kindLabel} · ${model.periodLabel}`}
+    title={model.title}
+    dek={model.summary}
+  />
+
+  <NarrativeSection
+    id="story"
+    index="01"
+    eyebrow="Reviewed editorial story"
+    title="Interpretation, with the evidence boundary left visible."
+    summary="The authored reflection below can explain why this return or dormancy mattered. It cannot alter the analytical classification, approved values, or publication scope."
+  >
+    {model.selectedTrackLabel !== null && (
+      <div class="story-selected-track">
+        <p class="eyebrow">Wholly manual selected-track identity</p>
+        <p><span aria-hidden="true">♪</span> <strong>{model.selectedTrackLabel}</strong></p>
+        <p>
+          This reviewed display identity is editorial detail. It does not create track-level
+          evidence, enumerate plays, or turn artist-scoped evidence into a track claim.
+        </p>
+      </div>
+    )}
+    <article class="story-prose">
+      {model.body.map((block) => (
+        <section>
+          {block.heading && <h3>{block.heading}</h3>}
+          {block.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+        </section>
+      ))}
+      <p class="editorial-boundary">Reviewed editorial interpretation · not analytical evidence</p>
+    </article>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="evidence"
+    index="02"
+    eyebrow={model.evidenceScopeLabel}
+    title={model.classificationLabel}
+    summary={model.classificationExplanation}
+  >
+    <StorySupersession story={model} />
+    <ul class="story-warning-list" aria-label="Evidence qualifications">
+      {model.warnings.map((warning) => <li>{warning}</li>)}
+    </ul>
+    <StoryEvidenceTables story={model} idPrefix={`story-detail-${model.slug}`} />
+    <div class="story-related-links" aria-label="Related approved context">
+      {model.artistPath !== null && <a href={model.artistPath}>Open eligible artist detail</a>}
+      {model.relatedEraPath !== null && <a href={model.relatedEraPath}>Inspect the related public era</a>}
+      <a href="/methodology/#definitions">Read the rediscovery and dormancy definitions</a>
+    </div>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="conclusion"
+    index="03"
+    eyebrow="An observation, not a fate"
+    title="Later listening is allowed to change the story."
+    summary="Approved snapshots preserve their original as-of interpretation. When a later reviewed return supersedes an older dormancy conclusion, both remain linked and readable rather than silently replacing history."
+  >
+    <p>
+      Return to the story index to compare only the bounded, editorially selected public cohort.
+      There is no raw candidate download, arbitrary artist lookup, or event-level history on this
+      route.
+    </p>
+    <p><a href="/stories/">Return to the reviewed story index</a></p>
+  </NarrativeSection>
+
+  <DisclosurePanel disclosure={disclosure} />
+</BaseLayout>

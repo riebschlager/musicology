@@ -1,0 +1,25 @@
+---
+interface Props {
+  readonly id?: string;
+  readonly kind: "dormancy" | "rediscovery";
+  readonly summary: string;
+  readonly title: string;
+  readonly trackLabel?: string;
+}
+
+const { id, kind, summary, title, trackLabel } = Astro.props;
+const kindLabel = kind === "rediscovery" ? "Return story" : "Dormancy story";
+---
+
+<article class="editorial-story" id={id}>
+  <p class="eyebrow">{kindLabel}</p>
+  <h3>{title}</h3>
+  {trackLabel && <p class="editorial-story__track"><span aria-hidden="true">♪</span> {trackLabel}</p>}
+  <p>{summary}</p>
+  <p class="editorial-story__qualification">
+    {kind === "rediscovery"
+      ? "A return is classified from approved aggregate evidence; a source gap can resemble an absence."
+      : "Dormancy is a reversible observation as of a date, never a permanent judgment."}
+  </p>
+  <slot />
+</article>

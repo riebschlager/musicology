@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!dist", "!!node_modules"]
+    "includes": ["**", "!!dist", "!!node_modules", "!!tests/fixtures/public-snapshots"]
   },
   "formatter": {
     "enabled": true,
@@ -19,6 +19,27 @@
       "preset": "recommended"
     }
   },
+  "overrides": [
+    {
+      "includes": ["site/**/*.astro"],
+      "linter": {
+        "enabled": false
+      }
+    },
+    {
+      "includes": ["site/src/styles/global.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          },
+          "style": {
+            "noDescendingSpecificity": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

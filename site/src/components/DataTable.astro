@@ -1,0 +1,31 @@
+---
+interface Props {
+  readonly caption: string;
+  readonly headers: readonly string[];
+  readonly id: string;
+  readonly rows: readonly (readonly string[])[];
+}
+
+const { caption, headers, id, rows } = Astro.props;
+---
+
+<div class="table-region" role="region" aria-labelledby={`${id}-caption`} tabindex="0">
+  <p class="table-region__instruction">Scroll this table horizontally if needed.</p>
+  <table id={id}>
+    <caption id={`${id}-caption`}>{caption}</caption>
+    <thead>
+      <tr>
+        {headers.map((header) => <th scope="col">{header}</th>)}
+      </tr>
+    </thead>
+    <tbody>
+      {rows.map((row) => (
+        <tr>
+          {row.map((cell, index) =>
+            index === 0 ? <th scope="row">{cell}</th> : <td>{cell}</td>,
+          )}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>

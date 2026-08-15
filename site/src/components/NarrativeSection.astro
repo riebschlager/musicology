@@ -1,0 +1,23 @@
+---
+interface Props {
+  readonly eyebrow: string;
+  readonly id: string;
+  readonly index: string;
+  readonly summary: string;
+  readonly title: string;
+}
+
+const { eyebrow, id, index, summary, title } = Astro.props;
+---
+
+<section class="narrative-section" id={id} aria-labelledby={`${id}-title`}>
+  <div class="narrative-section__index" aria-hidden="true">{index}</div>
+  <div class="narrative-section__heading">
+    <p class="eyebrow">{eyebrow}</p>
+    <h2 id={`${id}-title`}>{title}</h2>
+    <p class="narrative-section__summary">{summary}</p>
+  </div>
+  <div class="narrative-section__body">
+    <slot />
+  </div>
+</section>
