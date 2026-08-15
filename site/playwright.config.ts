@@ -1,4 +1,8 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig, devices } from "@playwright/test";
+
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 export default defineConfig({
   expect: {
@@ -23,6 +27,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "pnpm run site:build:fixture && pnpm run site:serve",
+    cwd: repositoryRoot,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     url: "http://127.0.0.1:4321",

@@ -34,6 +34,16 @@ describe("foundation developer workflow", () => {
     assert.doesNotMatch(workflow, /secrets\./);
   });
 
+  it("starts the Playwright web server from the package root", () => {
+    const config = readProjectFile("site/playwright.config.ts");
+
+    assert.match(
+      config,
+      /const repositoryRoot = fileURLToPath\(new URL\("\.\.\/", import\.meta\.url\)\);/,
+    );
+    assert.match(config, /webServer: \{[\s\S]*?cwd: repositoryRoot,/);
+  });
+
   it("documents every required fresh-checkout workflow", () => {
     const documentation = readProjectFile("docs/developer-workflow.md");
 
