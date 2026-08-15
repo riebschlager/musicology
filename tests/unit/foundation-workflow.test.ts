@@ -17,9 +17,14 @@ describe("foundation developer workflow", () => {
     assert.match(workflow, /node-version-file: \.node-version/);
     assert.match(workflow, /corepack install/);
     assert.match(workflow, /pnpm install --frozen-lockfile/);
-    assert.match(workflow, /pnpm exec playwright install --with-deps chromium/);
     assert.match(workflow, /run: pnpm quality/);
     assert.match(workflow, /run: pnpm site:test:browser/);
+    assert.match(workflow, /image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble/);
+    assert.match(workflow, /options: --ipc=host/);
+    assert.match(
+      workflow,
+      /browser:[\s\S]*?needs: foundation[\s\S]*?pnpm install --frozen-lockfile --ignore-scripts/,
+    );
     assert.match(workflow, /run: pnpm db:migrate --json/);
     assert.match(workflow, /run: pnpm db:status --json/);
   });
@@ -42,6 +47,16 @@ describe("foundation developer workflow", () => {
       /const repositoryRoot = fileURLToPath\(new URL\("\.\.\/", import\.meta\.url\)\);/,
     );
     assert.match(config, /webServer: \{[\s\S]*?cwd: repositoryRoot,/);
+  });
+
+  it("keeps visual screenshot comparisons in the documented Linux environment", () => {
+    const visualTests = readProjectFile("site/tests/browser/visual.spec.ts");
+    const stackDecision = readProjectFile(
+      "docs/decisions/phase-6-static-web-visualization-stack.md",
+    );
+
+    assert.match(visualTests, /process\.platform !== "linux"/);
+    assert.match(stackDecision, /pinned Linux Chromium\s+environment/);
   });
 
   it("documents every required fresh-checkout workflow", () => {

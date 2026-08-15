@@ -172,8 +172,29 @@ pnpm exec playwright install chromium
 pnpm site:test:browser
 ```
 
-Playwright browser binaries are a separately installed local/CI prerequisite and are not committed.
-CI installs pinned Chromium and runs this browser suite after the aggregate quality gate.
+Playwright browser binaries are a separately installed local prerequisite and are not committed. CI
+runs the browser suite after the aggregate quality gate in the exact-pinned Playwright Linux
+container, including its Chromium binary and font set. Functional, accessibility, responsive, and
+interaction checks run locally on supported platforms; pixel snapshot comparisons run only in that
+documented Linux environment so host font metrics do not create false regressions.
+
+After an intentional, reviewed visual change, regenerate the six Linux baselines from the repository
+root with the exact Playwright image pinned by `@playwright/test`:
+
+```sh
+docker run --rm --ipc=host --platform linux/amd64 \
+  --env ASTRO_TELEMETRY_DISABLED=1 \
+  --env CI=1 \
+  --env COREPACK_HOME=/tmp/corepack \
+  --mount type=bind,source="$PWD",target=/work \
+  --tmpfs "/work/node_modules:exec,uid=$(id -u),gid=$(id -g)" \
+  --user "$(id -u):$(id -g)" \
+  --workdir /work \
+  mcr.microsoft.com/playwright:v1.62.1-noble \
+  /bin/bash -lc 'mkdir -p /tmp/corepack-bin && corepack enable --install-directory /tmp/corepack-bin && export PATH="/tmp/corepack-bin:$PATH" && pnpm install --frozen-lockfile --ignore-scripts --store-dir /tmp/pnpm-store && pnpm site:test:browser --update-snapshots'
+```
+
+Review every changed PNG, then rerun the same container command without `--update-snapshots`.
 `pnpm site:build` is intentionally different from the fixture commands: it fails closed unless
 `data/publication/active.json` identifies a complete approved snapshot. Candidate fixtures can never
 satisfy that production boundary. The approval and deployment commands remain P6-10 work.

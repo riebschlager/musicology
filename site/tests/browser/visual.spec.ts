@@ -6,8 +6,10 @@ test.describe("editorial shell visual baselines", () => {
   for (const width of shellWidths) {
     test(`long-view shell at ${width} CSS pixels`, async ({ browserName, page }, testInfo) => {
       test.skip(
-        browserName !== "chromium" || testInfo.project.name !== "chromium-desktop",
-        "Visual baselines use the pinned desktop Chromium project only",
+        process.platform !== "linux" ||
+          browserName !== "chromium" ||
+          testInfo.project.name !== "chromium-desktop",
+        "Visual baselines use the pinned Linux desktop Chromium environment only",
       );
       await page.setViewportSize({ height: 900, width });
       await page.emulateMedia({ reducedMotion: "reduce" });
@@ -24,8 +26,10 @@ test.describe("editorial shell visual baselines", () => {
       page,
     }, testInfo) => {
       test.skip(
-        browserName !== "chromium" || testInfo.project.name !== "chromium-desktop",
-        "Visual baselines use the pinned desktop Chromium project only",
+        process.platform !== "linux" ||
+          browserName !== "chromium" ||
+          testInfo.project.name !== "chromium-desktop",
+        "Visual baselines use the pinned Linux desktop Chromium environment only",
       );
       await page.setViewportSize({ height: 900, width });
       await page.emulateMedia({ reducedMotion: "reduce" });
