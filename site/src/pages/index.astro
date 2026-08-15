@@ -4,6 +4,7 @@ import DisclosurePanel from "../components/DisclosurePanel.astro";
 import NarrativeSection from "../components/NarrativeSection.astro";
 import PageIntro from "../components/PageIntro.astro";
 import StatePanel from "../components/StatePanel.astro";
+import { LongViewExplorer } from "../islands/LongViewExplorer.tsx";
 import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { buildAnalyticalDisclosure, formatMonthRange, formatNumber } from "../view-models/site.ts";
@@ -71,8 +72,29 @@ const firstAnnotation = snapshot.editorial.data.annotations[0];
   </NarrativeSection>
 
   <NarrativeSection
-    id="seasons"
+    id="long-shape"
     index="02"
+    eyebrow="The long shape"
+    title="Listening volume and evidence quality share one timeline."
+    summary="The bar height always means canonical plays. Source backing travels with each period so a gap in evidence cannot masquerade as silence."
+  >
+    <LongViewExplorer
+      allowRange={false}
+      asOfDate={snapshot.manifest.asOfDate}
+      canonicalEventCount={snapshot.manifest.coverage.canonicalEventCount}
+      history={snapshot.history.data}
+      route="/"
+      spotifyDurationEventCount={snapshot.manifest.coverage.spotifyDurationEventCount}
+      client:load
+    />
+    <p class="long-view__next-step">
+      <a href="/history/">Bound the range and inspect yearly source evidence</a>
+    </p>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="seasons"
+    index="03"
     eyebrow="Overlapping signals"
     title="Artists arrive in seasons, not neat chapters."
     summary="An era is a parameterized signal made from activity, share, rank, continuity, and change from an earlier baseline—not a permanent label."
@@ -93,7 +115,7 @@ const firstAnnotation = snapshot.editorial.data.annotations[0];
 
   <NarrativeSection
     id="inspect"
-    index="03"
+    index="04"
     eyebrow="Take the evidence apart"
     title="The story stays readable when the controls disappear."
     summary="Default summaries, definitions, tables, and navigation are static HTML. Optional interaction can refine an approved view, never unlock private data."
@@ -103,6 +125,20 @@ const firstAnnotation = snapshot.editorial.data.annotations[0];
       publication limits. Both remain useful with JavaScript disabled.
     </p>
     <p><a href="/explore/">Open the bounded explorer</a> · <a href="/methodology/">Inspect the method</a></p>
+  </NarrativeSection>
+
+  <NarrativeSection
+    id="recent-edge"
+    index="05"
+    eyebrow="An unfinished ending"
+    title="The recent edge is still being observed."
+    summary={`The public record is current only through ${snapshot.manifest.asOfDate ?? "an unpopulated as-of date"}. Its latest period has had less time to accumulate evidence, so a downturn at the edge is never treated as a finished conclusion.`}
+  >
+    <p>
+      Right-censoring is part of the finding, not a statistical footnote. Read the final bar as an
+      open observation window and follow the methodology before comparing it with completed years.
+    </p>
+    <p><a href="/methodology/#definitions">Read the analytical definitions</a></p>
   </NarrativeSection>
 
   <DisclosurePanel disclosure={disclosure} />

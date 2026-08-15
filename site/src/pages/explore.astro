@@ -2,20 +2,17 @@
 import DisclosurePanel from "../components/DisclosurePanel.astro";
 import NarrativeSection from "../components/NarrativeSection.astro";
 import PageIntro from "../components/PageIntro.astro";
-import StatePanel from "../components/StatePanel.astro";
-import { ExplorerFilter } from "../islands/ExplorerFilter.tsx";
+import { LongViewExplorer } from "../islands/LongViewExplorer.tsx";
 import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { buildAnalyticalDisclosure, parseExplorerState } from "../view-models/site.ts";
+import { buildAnalyticalDisclosure } from "../view-models/site.ts";
 
 const snapshot = loadSiteSnapshot();
 const disclosure = buildAnalyticalDisclosure(snapshot);
-const state = parseExplorerState(Astro.url.searchParams);
-const canonicalPath = `/explore/${state.canonicalSearch}`;
 ---
 
 <BaseLayout
-  canonicalPath={canonicalPath}
+  canonicalPath="/explore/"
   currentPath="/explore/"
   description="Inspect bounded, URL-addressable states over the approved public listening snapshot."
   title="Explore"
@@ -30,17 +27,17 @@ const canonicalPath = `/explore/${state.canonicalSearch}`;
     id="explorer-state"
     index="01"
     eyebrow="Directly linkable state"
-    title="A useful URL before hydration."
-    summary="Native form controls submit an ordinary page request. Unsupported keys fall back visibly and never widen the public cohort."
+    title="A bounded long view with a reproducible URL."
+    summary="The explorer regroups only the approved monthly play-count rows and can narrow only to reviewed months. Unsupported keys fall back visibly and never widen the public cohort."
   >
-    <ExplorerFilter defaultState={state} client:load />
-    <StatePanel
-      kind={snapshot.history.data.periods.length === 0 ? "empty" : "loading"}
-      headingLevel={3}
-      heading={snapshot.history.data.periods.length === 0 ? "No approved aggregate matches" : "Default public aggregate ready"}
-      message={snapshot.history.data.periods.length === 0
-        ? "The chosen controls are preserved, but an evidence-free range is not described as zero listening."
-        : "The static summary is available now. A later bounded island may coordinate the chart instantly without becoming the only route to the data."}
+    <LongViewExplorer
+      allowRange={true}
+      asOfDate={snapshot.manifest.asOfDate}
+      canonicalEventCount={snapshot.manifest.coverage.canonicalEventCount}
+      history={snapshot.history.data}
+      route="/explore/"
+      spotifyDurationEventCount={snapshot.manifest.coverage.spotifyDurationEventCount}
+      client:load
     />
   </NarrativeSection>
 

@@ -224,6 +224,16 @@ than low-level DOM control. Vega-Lite would add another grammar and runtime for 
 while large dashboard chart suites bring controls and semantics that fight the narrative and
 bundle budgets. Direct SVG remains available only at the documented exception boundary.
 
+**P6-06 TypeScript amendment (2026-08-15):** Observable Plot 0.6.17's published declarations do
+not compile cleanly under the repository's TypeScript 7 strict gate: they reference undeclared D3
+types and contain upstream interface-extension conflicts. The runtime itself builds and renders
+the required chart. The site therefore maps the package to a narrow project-owned declaration
+facade for the three Plot functions used by `site/src/charts/`, while Vite still resolves the
+exact-pinned package at build/runtime. This keeps third-party declaration failures out of the
+project gate without enabling repository-wide `skipLibCheck`, weakening application types, or
+letting pages call Plot directly. Expanding the Plot API requires expanding and testing this
+facade deliberately; it can be removed when the pinned upstream declarations pass TypeScript 7.
+
 ## Styling strategy
 
 Version 1 uses authored CSS rather than a utility framework or CSS-in-JS runtime. A small global

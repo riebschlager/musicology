@@ -1,17 +1,14 @@
 ---
-import ChartFrame from "../components/ChartFrame.astro";
-import DataTable from "../components/DataTable.astro";
 import DisclosurePanel from "../components/DisclosurePanel.astro";
 import NarrativeSection from "../components/NarrativeSection.astro";
 import PageIntro from "../components/PageIntro.astro";
-import StatePanel from "../components/StatePanel.astro";
+import { LongViewExplorer } from "../islands/LongViewExplorer.tsx";
 import { loadSiteSnapshot } from "../adapters/public-snapshot.ts";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { buildAnalyticalDisclosure, formatNumber, formatPercent } from "../view-models/site.ts";
+import { buildAnalyticalDisclosure, formatNumber } from "../view-models/site.ts";
 
 const snapshot = loadSiteSnapshot();
 const disclosure = buildAnalyticalDisclosure(snapshot);
-const hasHistory = snapshot.history.data.periods.length > 0;
 ---
 
 <BaseLayout
@@ -33,51 +30,15 @@ const hasHistory = snapshot.history.data.periods.length > 0;
     title="What can the retained record honestly support?"
     summary={`${formatNumber(snapshot.manifest.coverage.canonicalEventCount)} canonical events are represented in this reviewed snapshot; source evidence and duration coverage remain separately labeled.`}
   >
-    {hasHistory ? (
-      <>
-        <ChartFrame
-          title="Canonical play count with source context"
-          description="The route shell binds the future visual layer to this visible definition, summary, disclosure, and equivalent table contract."
-          tableId="history-contract-table"
-        >
-          <div class="chart-placeholder">
-            <p>
-              Full-history play count and source coverage will share one reading sequence. Color,
-              position, and hover will never be the only ways to identify a gap or value.
-            </p>
-          </div>
-        </ChartFrame>
-        <DataTable
-          id="history-contract-table"
-          caption="Current public history scope"
-          headers={["Measure", "Reviewed value", "Scope"]}
-          rows={[
-            [
-              "Canonical play count",
-              formatNumber(snapshot.manifest.coverage.canonicalEventCount),
-              "Full retained history",
-            ],
-            [
-              "Spotify duration coverage",
-              formatNumber(snapshot.manifest.coverage.spotifyDurationEventCount),
-              "Spotify-backed events only",
-            ],
-            [
-              "Unresolved proportion",
-              formatPercent(snapshot.manifest.coverage.unresolvedRate),
-              "Included in canonical play count",
-            ],
-          ]}
-        />
-      </>
-    ) : (
-      <StatePanel
-        kind="empty"
-        headingLevel={3}
-        heading="No reviewed history rows"
-        message="No zero timeline is invented. Coverage definitions and methodology remain available."
-      />
-    )}
+    <LongViewExplorer
+      allowRange={true}
+      asOfDate={snapshot.manifest.asOfDate}
+      canonicalEventCount={snapshot.manifest.coverage.canonicalEventCount}
+      history={snapshot.history.data}
+      route="/history/"
+      spotifyDurationEventCount={snapshot.manifest.coverage.spotifyDurationEventCount}
+      client:load
+    />
   </NarrativeSection>
 
   <DisclosurePanel disclosure={disclosure} />

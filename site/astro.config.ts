@@ -16,5 +16,14 @@ export default defineConfig({
     build: {
       sourcemap: false,
     },
+    resolve: {
+      // TypeScript uses the narrow local Plot declaration facade; Vite must still bundle the
+      // exact-pinned runtime instead of treating that declaration-only module as JavaScript.
+      alias: {
+        "@observablehq/plot": fileURLToPath(
+          new URL("../node_modules/@observablehq/plot/src/index.js", import.meta.url),
+        ),
+      },
+    },
   },
 });

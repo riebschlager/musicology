@@ -6,10 +6,10 @@ import { gzipSync } from "node:zlib";
 const root = path.join(process.cwd(), "site", "dist");
 const routes = [
   ["404.html", false, false],
-  ["index.html", true, false],
+  ["index.html", true, true],
   ["artists/index.html", true, false],
   ["explore/index.html", true, true],
-  ["history/index.html", true, false],
+  ["history/index.html", true, true],
   ["methodology/index.html", true, false],
   ["stories/index.html", true, false],
 ] as const;
@@ -81,19 +81,19 @@ const emptyHistory = /No reviewed history rows/u.test(historyHtml);
 if (emptyHistory) {
   assert.doesNotMatch(
     historyHtml,
-    /history-contract-table/u,
+    /long-view-table/u,
     "Empty history must not fabricate a chart or table",
   );
   assert.match(historyHtml, /No zero timeline is invented/u);
 } else {
   assert.match(
     historyHtml,
-    /href="#history-contract-table"/u,
+    /href="#long-view-table"/u,
     "The History chart must link to its equivalent data table",
   );
   assert.match(
     historyHtml,
-    /id="history-contract-table"/u,
+    /id="long-view-table"/u,
     "The History chart's equivalent data table must exist",
   );
 }

@@ -477,7 +477,7 @@
     padding: 0;
     border: 0;
     gap: var(--space-3);
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   }
 
   .filter-panel legend {
@@ -500,6 +500,70 @@
     min-height: 2.8rem;
     border: 2px solid var(--white);
     border-radius: 0;
+  }
+
+  .long-view {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .long-view__next-step {
+    margin-top: var(--space-3);
+    font-family: var(--font-label);
+    font-weight: 800;
+  }
+
+  .metric-boundary {
+    display: grid;
+    border: 1px solid var(--ink);
+    background: var(--paper-light);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric-boundary > div {
+    padding: var(--space-4);
+  }
+
+  .metric-boundary > div + div {
+    border-left: 1px solid var(--ink);
+    background: repeating-linear-gradient(
+      -45deg,
+      rgb(109 98 88 / 10%) 0 0.6rem,
+      transparent 0.6rem 1.2rem
+    );
+  }
+
+  .metric-boundary h3 {
+    margin-bottom: var(--space-2);
+  }
+
+  .long-view__findings {
+    padding: var(--space-4);
+    border-left: 0.55rem solid var(--signal);
+    background: rgb(248 242 231 / 74%);
+  }
+
+  .long-view__findings ol {
+    display: grid;
+    margin: var(--space-3) 0 0;
+    padding-left: 1.4rem;
+    gap: var(--space-2);
+  }
+
+  .long-view__plot {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .long-view__plot > svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .long-view__table tfoot {
+    border-top: 0.2rem solid var(--ink);
+    font-weight: 800;
   }
 
   .filter-panel select {
@@ -785,8 +849,14 @@
     .route-grid,
     .story-grid,
     .definition-grid,
-    .metric-strip {
+    .metric-strip,
+    .metric-boundary {
       grid-template-columns: 1fr;
+    }
+
+    .metric-boundary > div + div {
+      border-top: 1px solid var(--ink);
+      border-left: 0;
     }
 
     .narrative-section__body {
@@ -829,6 +899,7 @@
     .annotation,
     .editorial-story,
     .filter-panel,
+    .metric-boundary,
     .disclosure-panel {
       border: 2px solid CanvasText;
       box-shadow: none;
