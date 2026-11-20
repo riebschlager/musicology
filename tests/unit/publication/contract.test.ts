@@ -450,6 +450,23 @@ describe("public artifact contract", () => {
     );
   });
 
+  it("accepts positive fractional-day source gap durations", () => {
+    const history = structuredClone(validArtifacts()[0]) as Record<string, unknown>;
+    const sourceCoverage = (
+      history.data as {
+        sourceCoverage: { longGaps: { durationDays: number }[] }[];
+      }
+    ).sourceCoverage;
+    const gap = sourceCoverage[0]?.longGaps[0];
+    assert.ok(gap);
+    gap.durationDays = 365.5;
+
+    assert.equal(validatePublicArtifact(history), history);
+
+    gap.durationDays = 0;
+    assert.throws(() => validatePublicArtifact(history), /must be greater than zero/u);
+  });
+
   it("accepts an explicit empty history without fabricated dates or rows", () => {
     const history = structuredClone(validArtifacts()[0]) as Record<string, unknown>;
     history.asOfDate = null;

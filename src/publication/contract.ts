@@ -741,7 +741,7 @@ function validateSourceCoverage(input: unknown, includedSourcesInput: unknown): 
       ]);
       validateMonth(gap.afterPeriod, "Gap after period");
       validateMonth(gap.beforePeriod, "Gap before period");
-      validatePositiveCount(gap.durationDays, "Gap duration days");
+      validatePositiveNumber(gap.durationDays, "Gap duration days");
       if ((gap.afterPeriod as string) >= (gap.beforePeriod as string)) {
         throw new PublicContractError("Source gap end must be after its start");
       }
